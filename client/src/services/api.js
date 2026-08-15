@@ -43,14 +43,29 @@ const request = async (path, options = {}) => {
   }
 };
 
-export const sendOtp = (formData) => request("/auth/send-otp", {
+export const sendSignupOtp = (formData) => request("/auth/signup/send-otp", {
   method: "POST",
   body: JSON.stringify(formData)
 });
 
-export const verifyOtp = (formData) => request("/auth/verify-otp", {
+export const verifySignupOtp = (formData) => request("/auth/signup/verify-otp", {
   method: "POST",
   body: JSON.stringify(formData)
+});
+
+export const runIdentityCheck = (payload) => request("/auth/signup/identity-check", {
+  method: "POST",
+  body: JSON.stringify(payload)
+});
+
+export const completeSignup = (payload) => request("/auth/signup/complete", {
+  method: "POST",
+  body: JSON.stringify(payload)
+});
+
+export const login = (payload) => request("/auth/login", {
+  method: "POST",
+  body: JSON.stringify(payload)
 });
 
 export const getDashboard = () => request("/users/me/dashboard");
@@ -103,6 +118,27 @@ export const acceptConnectionRequest = (connectionId) => request(`/connections/$
 
 export const declineConnectionRequest = (connectionId) => request(`/connections/${connectionId}`, {
   method: "DELETE"
+});
+
+export const startCheckin = (payload) => request("/checkins", {
+  method: "POST",
+  body: JSON.stringify(payload)
+});
+
+export const confirmArrival = (checkinId) => request(`/checkins/${checkinId}/arrived`, {
+  method: "PATCH"
+});
+
+export const getActiveCheckins = () => request("/checkins/active");
+
+export const getCheckinsToWatch = () => request("/checkins/watch");
+
+export const markCheckinOverdue = (checkinId) => request(`/checkins/${checkinId}/overdue`, {
+  method: "PATCH"
+});
+
+export const requestWorkerIdVerification = (workerId) => request(`/workers/${workerId}/verify-id`, {
+  method: "POST"
 });
 
 export const updateLocation = (userId, payload) => request(`/users/${userId}/location`, {

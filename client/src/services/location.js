@@ -1,86 +1,51 @@
-const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-const sessionToken = String(Date.now());
+function formatPhotonFeature(feature) {
+  const props = feature.properties || {};
+  const coordinates = feature.geometry?.coordinates || [];
+  const parts = [props.name, props.city, props.state, props.country].filter(Boolean);
 
-function getLocalityFromFeature(feature) {
-  if(!feature) {
-    return "";
-  }
-
-  if(feature.properties && feature.properties.full_address) {
-    return feature.properties.full_address;
-  }
-
-  if(feature.place_name) {
-    return feature.place_name;
-  }
-
-  if(feature.name) {
-    return feature.name;
-  }
-
-  return "";
+  return {
+    id: `${props.osm_type || "osm"}-${props.osm_id || parts.join("-")}`,
+    name: props.name || props.city || "Selected locality",
+    placeFormatted: parts.slice(1).join(", "),
+    locality: parts.join(", "),
+    latitude: coordinates[1] || "",
+    longitude: coordinates[0] || ""
+  };
 }
 
 export const getLocationSuggestions = async (query) => {
-  if(!mapboxToken) {
-    return [];
-  }
-
   if(!query || query.length < 3) {
     return [];
   }
 
   try {
-    const response = await fetch(
-      `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&types=place,locality,neighborhood,address&limit=5&session_token=${sessionToken}&access_token=${mapboxToken}`
-    );
+    const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`);
     const data = await response.json();
 
-    return data.suggestions || [];
+    return (data.features || []).map(formatPhotonFeature);
   } catch (error) {
     return [];
   }
 };
 
-export const getSelectedLocation = async (mapboxId) => {
-  if(!mapboxToken || !mapboxId) {
+export const getSelectedLocation = async (suggestion) => {
+  if(!suggestion) {
     return {
-      message: "Location service is not configured",
+      message: "Choose a locality",
       success: false
     };
   }
 
-  try {
-    const response = await fetch(
-      `https://api.mapbox.com/search/searchbox/v1/retrieve/${mapboxId}?session_token=${sessionToken}&access_token=${mapboxToken}`
-    );
-    const data = await response.json();
-    const feature = data.features && data.features[0];
-    const coordinates = feature && feature.geometry ? feature.geometry.coordinates : [];
-
-    return {
-      message: "Location selected",
-      success: true,
-      locality: getLocalityFromFeature(feature),
-      latitude: coordinates[1] || "",
-      longitude: coordinates[0] || ""
-    };
-  } catch (error) {
-    return {
-      message: "Could not select locality",
-      success: false
-    };
-  }
+  return {
+    message: "Location selected",
+    success: true,
+    locality: suggestion.locality || suggestion.name,
+    latitude: suggestion.latitude,
+    longitude: suggestion.longitude
+  };
 };
 
 export const getCurrentLocality = async () => {
-  if(!mapboxToken) {
-    return {
-      message: "Add VITE_MAPBOX_ACCESS_TOKEN in client/.env for locality autofill",
-      success: false
-    };
-  }
-
   if(!navigator.geolocation) {
     return {
       message: "Location is not supported in this browser",
@@ -95,15 +60,25 @@ export const getCurrentLocality = async () => {
           const latitude = position.coords.latitude;
           const longitude = position.coords.longitude;
           const response = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?types=neighborhood,locality,place&access_token=${mapboxToken}`
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=jsonv2&email=demo@empowher.local`,
+            {
+              headers: {
+                "Accept": "application/json"
+              }
+            }
           );
           const data = await response.json();
-          const feature = data.features && data.features[0];
+          const address = data.address || {};
+          const locality = [
+            address.neighbourhood || address.suburb || address.city_district || address.city || address.town || address.village,
+            address.state,
+            address.country
+          ].filter(Boolean).join(", ");
 
           resolve({
             message: "Location detected",
             success: true,
-            locality: getLocalityFromFeature(feature),
+            locality: locality || data.display_name || "Detected location",
             latitude,
             longitude
           });

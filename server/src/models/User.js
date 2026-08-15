@@ -11,6 +11,18 @@ const userSchema = new mongoose.Schema(
             required: true,
             unique: true
         },
+        email: {
+            type: String,
+            required: true,
+            unique: true,
+            lowercase: true,
+            trim: true
+        },
+        passwordHash: {
+            type: String,
+            required: true,
+            select: false
+        },
         role: {
             type: String,
             enum: ["woman", "worker"],
@@ -44,6 +56,22 @@ const userSchema = new mongoose.Schema(
         ratingCount: {
             type: Number,
             default: 0
+        },
+        identityVerified: {
+            type: Boolean,
+            default: false
+        },
+        identityVerifiedAt: {
+            type: Date,
+            default: null
+        },
+        idVerificationRequested: {
+            type: Boolean,
+            default: false
+        },
+        idVerified: {
+            type: Boolean,
+            default: false
         },
         sharingWith: [{
             type: mongoose.Schema.Types.ObjectId,

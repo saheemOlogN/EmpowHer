@@ -6,9 +6,11 @@ import Assistant from "./pages/Assistant.jsx";
 import Connections from "./pages/Connections.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Experiences from "./pages/Experiences.jsx";
-import Login from "./pages/Login.jsx";
 import SafetyPin from "./pages/SafetyPin.jsx";
+import Signin from "./pages/Signin.jsx";
+import Signup from "./pages/Signup.jsx";
 import { clearSession, getDashboard, getStoredUser, getToken, storeSession } from "./services/api.js";
+import { Toaster } from "sonner";
 
 function AppRoutes() {
   const navigate = useNavigate();
@@ -58,17 +60,21 @@ function AppRoutes() {
     : <Navigate to="/login" replace />;
 
   return (
-    <Routes>
-      <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
-      <Route element={protectedShell}>
-        <Route path="/" element={<Dashboard currentUser={currentUser} />} />
-        <Route path="/connections" element={<Connections currentUser={currentUser} />} />
-        <Route path="/alerts" element={<Alerts currentUser={currentUser} />} />
-        <Route path="/experiences" element={<Experiences currentUser={currentUser} />} />
-        <Route path="/assistant" element={<Assistant currentUser={currentUser} />} />
-        <Route path="/safety-pin" element={<SafetyPin />} />
-      </Route>
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <Signin onLogin={handleLogin} />} />
+        <Route path="/signup" element={currentUser ? <Navigate to="/" replace /> : <Signup onLogin={handleLogin} />} />
+        <Route element={protectedShell}>
+          <Route path="/" element={<Dashboard currentUser={currentUser} />} />
+          <Route path="/connections" element={<Connections currentUser={currentUser} />} />
+          <Route path="/alerts" element={<Alerts currentUser={currentUser} />} />
+          <Route path="/experiences" element={<Experiences currentUser={currentUser} />} />
+          <Route path="/assistant" element={<Assistant currentUser={currentUser} />} />
+          <Route path="/safety-pin" element={<SafetyPin />} />
+        </Route>
+      </Routes>
+      <Toaster richColors position="top-right" />
+    </>
   );
 }
 

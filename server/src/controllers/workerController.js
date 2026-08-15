@@ -105,3 +105,45 @@ export const markWorkerSafe = async (req, res) => {
         });
     }
 };
+
+export const requestIdVerification = async (req, res) => {
+    try {
+        const { workerId } = req.params;
+
+        if(workerId !== req.user.userId || req.user.role !== "worker") {
+            return res.status(403).json({
+                message: "Only workers can verify their own ID",
+                success: false
+            });
+        }
+
+        const worker = await User.findById(workerId);
+
+        if(!worker || worker.role !== "worker") {
+            return res.status(404).json({
+                message: "Worker not found",
+                success: false
+            });
+        }
+
+        worker.idVerificationRequested = true;
+        await worker.save();
+
+        await new Promise((resolve) => setTimeout(resolve, 700));
+
+        // Demo only: production should use DigiLocker verification and never store ID documents.
+        worker.idVerified = true;
+        await worker.save();
+
+        return res.status(200).json({
+            message: "ID verified",
+            success: true,
+            worker
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Could not verify ID",
+            success: false
+        });
+    }
+};
