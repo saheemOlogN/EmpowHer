@@ -5,7 +5,8 @@ import WorkerRating from "../models/WorkerRating.js";
 export const markWorkerSafe = async (req, res) => {
     try {
         const { workerId } = req.params;
-        const { userId, rating } = req.body;
+        const { rating } = req.body;
+        const userId = req.user.userId;
 
         if(mongoose.connection.readyState !== 1) {
             return res.status(503).json({
@@ -67,18 +68,28 @@ export const markWorkerSafe = async (req, res) => {
             });
         }
 
-        await WorkerRating.create({
-            worker: worker._id,
-            ratedBy: woman._id,
-            rating
-        });
+        await WorkerRating.findOneAndUpdate(
+            {
+                worker: worker._id,
+                ratedBy: woman._id
+            },
+            { rating: Number(rating) },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
 
-        const totalRating = worker.safetyRating * worker.ratingCount;
-        const newRatingCount = worker.ratingCount + 1;
-        const newSafetyRating = (totalRating + Number(rating)) / newRatingCount;
+        const summary = await WorkerRating.aggregate([
+            { $match: { worker: worker._id } },
+            {
+                $group: {
+                    _id: "$worker",
+                    ratingCount: { $sum: 1 },
+                    safetyRating: { $avg: "$rating" }
+                }
+            }
+        ]);
 
-        worker.ratingCount = newRatingCount;
-        worker.safetyRating = Number(newSafetyRating.toFixed(1));
+        worker.ratingCount = summary[0]?.ratingCount || 0;
+        worker.safetyRating = Number((summary[0]?.safetyRating || 0).toFixed(1));
 
         await worker.save();
 

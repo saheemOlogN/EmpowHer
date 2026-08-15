@@ -22,6 +22,8 @@ const workerRatingSchema = new mongoose.Schema(
     }
 );
 
+workerRatingSchema.index({ worker: 1, ratedBy: 1 }, { unique: true });
+
 const WorkerRating = mongoose.model("WorkerRating", workerRatingSchema);
 
 export default WorkerRating;

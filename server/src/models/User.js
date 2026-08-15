@@ -44,12 +44,27 @@ const userSchema = new mongoose.Schema(
         ratingCount: {
             type: Number,
             default: 0
+        },
+        sharingWith: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }],
+        sharingExpiresAt: {
+            type: Date,
+            default: null
         }
     },
     {
         timestamps: true
     }
 );
+
+userSchema.virtual("isRecommended").get(function getIsRecommended() {
+    return this.ratingCount >= 5 && this.safetyRating >= 4.5;
+});
+
+userSchema.set("toJSON", { virtuals: true });
+userSchema.set("toObject", { virtuals: true });
 
 const User = mongoose.model("User", userSchema);
 

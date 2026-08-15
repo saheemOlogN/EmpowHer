@@ -1,120 +1,175 @@
+import { Bell, HeartHandshake, MapPin, Star, UsersRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import TrustSeal from "../components/TrustSeal.jsx";
 import {
-  Bell,
-  BriefcaseBusiness,
-  HeartHandshake,
-  Home,
-  MapPin,
-  ShieldCheck,
-  Star,
-  UserRound,
-  UsersRound,
-  Wifi
-} from "lucide-react";
+  getAlerts,
+  getConnections,
+  getDashboard,
+  getSharedLocations,
+  markWorkerSafe,
+  sendConnectionRequest
+} from "../services/api.js";
 
-function Dashboard({ currentUser, dashboard, message, onMarkSafe, onSafetyPin }) {
-  const womenNearby = dashboard.womenNearby || [];
-  const workersNearby = dashboard.workersNearby || [];
+function RatingPicker({ onRate }) {
+  const [hover, setHover] = useState(0);
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
-        <aside className="border-r border-slate-200 bg-white p-6">
-          <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-600 text-white">
-              <ShieldCheck size={24} />
-            </div>
+    <div className="star-picker" onMouseLeave={() => setHover(0)}>
+      {[1, 2, 3, 4, 5].map((rating) => (
+        <button key={rating} onMouseEnter={() => setHover(rating)} onClick={() => onRate(rating)} aria-label={`Rate ${rating} stars`}>
+          <Star size={18} fill={rating <= hover ? "currentColor" : "none"} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Dashboard({ currentUser }) {
+  const [dashboard, setDashboard] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [connections, setConnections] = useState({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
+  const [sharedLocations, setSharedLocations] = useState([]);
+  const [message, setMessage] = useState("");
+
+  async function load() {
+    const [dashboardData, alertData, connectionData, locationData] = await Promise.all([
+      getDashboard(),
+      getAlerts(currentUser.locality),
+      getConnections(),
+      getSharedLocations()
+    ]);
+
+    if(dashboardData.success) setDashboard(dashboardData);
+    if(alertData.success) setAlerts(alertData.alerts);
+    if(connectionData.success) setConnections(connectionData);
+    if(locationData.success) setSharedLocations(locationData.locations);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const outgoingIds = useMemo(() => new Set(connections.pendingOutgoing.map((connection) => String(connection.recipient._id))), [connections]);
+  const connectedIds = useMemo(() => new Set(connections.accepted.flatMap((connection) => [String(connection.requester._id), String(connection.recipient._id)])), [connections]);
+
+  async function requestConnection(recipientId) {
+    const data = await sendConnectionRequest(recipientId);
+    setMessage(data.message);
+    await load();
+  }
+
+  async function rateWorker(workerId, rating) {
+    const data = await markWorkerSafe(workerId, rating);
+    setMessage(data.message);
+    await load();
+  }
+
+  if(!dashboard) {
+    return <section className="page-panel">Loading dashboard...</section>;
+  }
+
+  const womenNearby = dashboard.womenNearby || [];
+  const workersNearby = dashboard.workersNearby || [];
+  const activeAlerts = alerts.filter((alert) => alert.status === "active");
+  const mapCenter = sharedLocations[0] ? [sharedLocations[0].latitude, sharedLocations[0].longitude] : [19.076, 72.8777];
+
+  return (
+    <div className="page-stack">
+      {message && <p className="notice">{message}</p>}
+
+      <section className="alert-strip">
+        <p className="data-label">{activeAlerts.length} ACTIVE ALERTS IN {currentUser.locality}</p>
+        <div>
+          {activeAlerts.slice(0, 3).map((alert) => (
+            <span key={alert._id}>{alert.type.replaceAll("_", " ")}</span>
+          ))}
+          {activeAlerts.length === 0 && <span>No alerts in your area yet</span>}
+        </div>
+      </section>
+
+      <section className="quick-grid">
+        <Link className="action-card" to="/connections"><UsersRound />Connections</Link>
+        <Link className="action-card" to="/experiences"><HeartHandshake />Experiences</Link>
+        <Link className="action-card" to="/alerts"><Bell />Raise alert</Link>
+      </section>
+
+      {sharedLocations.length > 0 ? (
+        <section className="page-panel">
+          <div className="section-heading">
             <div>
-              <p className="text-xl font-extrabold">EmpowHer</p>
-              <p className="text-sm text-slate-500">Community Safety</p>
+              <p className="data-label">LIVE CONNECTIONS</p>
+              <h2>Shared locations</h2>
             </div>
           </div>
-
-          <nav className="grid gap-2">
-            <button className="side-link-active"><Home size={19} />Dashboard</button>
-            <button className="side-link"><UsersRound size={19} />Connections</button>
-            <button className="side-link"><BriefcaseBusiness size={19} />Jobs</button>
-            <button className="side-link"><HeartHandshake size={19} />Help</button>
-            <button onClick={onSafetyPin} className="side-link"><Wifi size={19} />Safety Pin</button>
-          </nav>
-        </aside>
-
-        <section className="p-5 md:p-8">
-          <header className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <div>
-              <p className="text-sm font-bold uppercase text-indigo-600">Welcome, {currentUser.name}</p>
-              <h1 className="mt-2 text-4xl font-extrabold">Dashboard</h1>
-              <p className="mt-2 flex items-center gap-2 text-slate-600">
-                <MapPin size={18} /> {currentUser.locality}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
-              <UserRound size={22} />
-              <div>
-                <p className="font-bold capitalize">{currentUser.role}</p>
-                <p className="text-sm text-slate-500">{currentUser.phone}</p>
-              </div>
-            </div>
-          </header>
-
-          {message && <p className="mb-5 rounded-lg bg-white px-4 py-3 font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">{message}</p>}
-
-          <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <button className="action-card"><UsersRound className="text-emerald-500" />Connect</button>
-            <button className="action-card"><HeartHandshake className="text-orange-500" />Help</button>
-            <button className="action-card"><BriefcaseBusiness className="text-indigo-500" />Open Job</button>
-            <button onClick={onSafetyPin} className="action-card"><Bell className="text-sky-500" />Safety Pin</button>
-          </section>
-
-          <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-            <div className="panel">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-2xl font-extrabold">Women Nearby</h2>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-700">{womenNearby.length}</span>
-              </div>
-
-              <div className="grid gap-3">
-                {womenNearby.length === 0 && <p className="empty-text">No women found in your locality yet.</p>}
-                {womenNearby.map((woman) => (
-                  <article key={woman._id} className="list-card">
-                    <div>
-                      <h3 className="font-bold">{woman.name}</h3>
-                      <p className="text-sm text-slate-500">{woman.locality}</p>
-                    </div>
-                    <button className="small-button">Connect</button>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div className="panel">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-2xl font-extrabold">Workers Nearby</h2>
-                <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">{workersNearby.length}</span>
-              </div>
-
-              <div className="grid gap-3">
-                {workersNearby.length === 0 && <p className="empty-text">No workers found in your locality yet.</p>}
-                {workersNearby.map((worker) => (
-                  <article key={worker._id} className="list-card">
-                    <div>
-                      <h3 className="font-bold">{worker.name}</h3>
-                      <p className="text-sm text-slate-500">{worker.workType || "Worker"} in {worker.locality}</p>
-                      <p className="mt-1 flex items-center gap-1 text-sm font-bold text-amber-600">
-                        <Star size={16} fill="currentColor" />
-                        {worker.safetyRating || 0} rating from {worker.ratingCount || 0} marks
-                      </p>
-                    </div>
-                    {currentUser.role === "woman" && (
-                      <button onClick={() => onMarkSafe(worker._id)} className="small-button">Mark Safe</button>
-                    )}
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
+          <MapContainer center={mapCenter} zoom={13} className="map-panel">
+            <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            {sharedLocations.map((person) => (
+              <Marker key={person._id} position={[person.latitude, person.longitude]}>
+                <Popup>{person.name} in {person.locality}</Popup>
+              </Marker>
+            ))}
+          </MapContainer>
         </section>
-      </div>
-    </main>
+      ) : (
+        <section className="empty-text">No trusted connection is sharing live location with you yet - you will see them here when sharing starts.</section>
+      )}
+
+      <section className="dashboard-columns">
+        <div className="page-panel">
+          <div className="section-heading">
+            <div>
+              <p className="data-label">{womenNearby.length} LOCAL PROFILES</p>
+              <h2>Women Nearby</h2>
+            </div>
+          </div>
+          <div className="card-list">
+            {womenNearby.length === 0 && <p className="empty-text">No women found in your locality yet - nearby profiles will appear here after they join.</p>}
+            {womenNearby.map((woman) => {
+              const connected = connectedIds.has(String(woman._id));
+              const requested = outgoingIds.has(String(woman._id));
+              return (
+                <article key={woman._id} className="list-card">
+                  <div>
+                    <h3>{woman.name}</h3>
+                    <p><MapPin size={14} /> {woman.locality}</p>
+                  </div>
+                  {connected ? <TrustSeal label="CONNECTED" /> : (
+                    <button className="small-button" disabled={requested} onClick={() => requestConnection(woman._id)}>
+                      {requested ? "Requested" : "Connect"}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="page-panel">
+          <div className="section-heading">
+            <div>
+              <p className="data-label">{workersNearby.length} LOCAL WORKERS</p>
+              <h2>Workers Nearby</h2>
+            </div>
+          </div>
+          <div className="card-list">
+            {workersNearby.length === 0 && <p className="empty-text">No workers found in your locality yet - recommended workers will appear here once your community rates them.</p>}
+            {workersNearby.map((worker) => (
+              <article key={worker._id} className="list-card worker-card">
+                {worker.isRecommended && <TrustSeal label="COMMUNITY RECOMMENDED" tone="star" />}
+                <div>
+                  <h3>{worker.name}</h3>
+                  <p>{worker.workType || "Worker"} in {worker.locality}</p>
+                  <p className="rating-line"><Star size={15} fill="currentColor" /> {worker.safetyRating || 0} from {worker.ratingCount || 0} marks</p>
+                </div>
+                {currentUser.role === "woman" && <RatingPicker onRate={(rating) => rateWorker(worker._id, rating)} />}
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 

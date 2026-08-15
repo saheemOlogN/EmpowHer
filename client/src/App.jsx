@@ -1,71 +1,82 @@
-import { useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import Shell from "./components/Shell.jsx";
+import Alerts from "./pages/Alerts.jsx";
+import Assistant from "./pages/Assistant.jsx";
+import Connections from "./pages/Connections.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import Experiences from "./pages/Experiences.jsx";
 import Login from "./pages/Login.jsx";
-import { getDashboard, loginUser, markWorkerSafe } from "./services/api.js";
+import SafetyPin from "./pages/SafetyPin.jsx";
+import { clearSession, getDashboard, getStoredUser, getToken, storeSession } from "./services/api.js";
 
-function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [dashboard, setDashboard] = useState(null);
-  const [message, setMessage] = useState("");
+function AppRoutes() {
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(getStoredUser());
+  const [checking, setChecking] = useState(Boolean(getToken()));
 
-  async function loadDashboard(userId) {
-    const data = await getDashboard(userId);
+  useEffect(() => {
+    async function verifyStoredSession() {
+      if(!getToken()) {
+        setChecking(false);
+        return;
+      }
 
-    if(!data.success) {
-      setMessage(data.message);
-      return;
+      const data = await getDashboard();
+
+      if(data.success) {
+        setCurrentUser(data.user);
+        localStorage.setItem("empowherUser", JSON.stringify(data.user));
+      } else {
+        clearSession();
+        setCurrentUser(null);
+      }
+
+      setChecking(false);
     }
 
-    setDashboard(data);
+    verifyStoredSession();
+  }, []);
+
+  function handleLogin(session) {
+    storeSession(session);
+    setCurrentUser(session.user);
+    navigate("/");
   }
 
-  async function handleLogin(formData) {
-    setMessage("");
-
-    const data = await loginUser(formData);
-
-    if(!data.success) {
-      setMessage(data.message);
-      return false;
-    }
-
-    setCurrentUser(data.user);
-    await loadDashboard(data.user._id);
-    setMessage(data.message);
-    return true;
+  function handleLogout() {
+    clearSession();
+    setCurrentUser(null);
   }
 
-  async function handleMarkSafe(workerId) {
-    const data = await markWorkerSafe(workerId, currentUser._id, 5);
-
-    setMessage(data.message);
-
-    if(data.success) {
-      await loadDashboard(currentUser._id);
-    }
+  if(checking) {
+    return <main className="loading-screen">Checking your session...</main>;
   }
 
-  function showSafetyPinMessage() {
-    setMessage("Safety pin will be implemented soon");
-  }
-
-  if(!currentUser || !dashboard) {
-    return (
-      <Login
-        message={message}
-        onLogin={handleLogin}
-      />
-    );
-  }
+  const protectedShell = currentUser
+    ? <Shell currentUser={currentUser} onLogout={handleLogout} />
+    : <Navigate to="/login" replace />;
 
   return (
-    <Dashboard
-      currentUser={currentUser}
-      dashboard={dashboard}
-      message={message}
-      onMarkSafe={handleMarkSafe}
-      onSafetyPin={showSafetyPinMessage}
-    />
+    <Routes>
+      <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
+      <Route element={protectedShell}>
+        <Route path="/" element={<Dashboard currentUser={currentUser} />} />
+        <Route path="/connections" element={<Connections currentUser={currentUser} />} />
+        <Route path="/alerts" element={<Alerts currentUser={currentUser} />} />
+        <Route path="/experiences" element={<Experiences currentUser={currentUser} />} />
+        <Route path="/assistant" element={<Assistant currentUser={currentUser} />} />
+        <Route path="/safety-pin" element={<SafetyPin />} />
+      </Route>
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 
