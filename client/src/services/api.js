@@ -1,4 +1,4 @@
-const apiUrl = "/api";
+const apiUrl = import.meta.env.VITE_API_URL || "/api";
 
 export const getToken = () => localStorage.getItem("empowherToken");
 
@@ -28,7 +28,13 @@ const request = async (path, options = {}) => {
         ...(options.headers || {})
       }
     });
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+      ? await response.json()
+      : {
+          message: response.ok ? "Request completed" : "Server returned an unexpected response",
+          success: response.ok
+        };
 
     if(response.status === 401) {
       clearSession();
@@ -37,7 +43,7 @@ const request = async (path, options = {}) => {
     return data;
   } catch (error) {
     return {
-      message: "Server is not reachable",
+      message: `Server is not reachable. Make sure the API is running on port ${import.meta.env.VITE_API_PORT || "4000"}.`,
       success: false
     };
   }

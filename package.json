@@ -7,6 +7,7 @@
     "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite --config client/vite.config.js",
     "dev:server": "node server/index.js",
+    "seed:ratnagiri": "node server/scripts/seedRatnagiri.js",
     "build": "vite build --config client/vite.config.js",
     "preview": "vite preview --config client/vite.config.js --host 127.0.0.1",
     "start": "node server/index.js"

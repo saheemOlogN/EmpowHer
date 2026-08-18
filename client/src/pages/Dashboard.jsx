@@ -32,8 +32,10 @@ function Dashboard({ currentUser }) {
   const [connections, setConnections] = useState({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
   const [sharedLocations, setSharedLocations] = useState([]);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function load() {
+    setLoading(true);
     const [dashboardData, alertData, connectionData, locationData] = await Promise.all([
       getDashboard(),
       getAlerts(currentUser.locality),
@@ -41,10 +43,21 @@ function Dashboard({ currentUser }) {
       getSharedLocations()
     ]);
 
-    if(dashboardData.success) setDashboard(dashboardData);
+    if(dashboardData.success) {
+      setDashboard(dashboardData);
+    } else {
+      setDashboard({
+        user: currentUser,
+        womenNearby: [],
+        workersNearby: []
+      });
+      setMessage(dashboardData.message || "Could not load dashboard data");
+    }
+
     if(alertData.success) setAlerts(alertData.alerts);
     if(connectionData.success) setConnections(connectionData);
     if(locationData.success) setSharedLocations(locationData.locations);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -66,7 +79,7 @@ function Dashboard({ currentUser }) {
     await load();
   }
 
-  if(!dashboard) {
+  if(loading && !dashboard) {
     return <section className="page-panel">Loading dashboard...</section>;
   }
 

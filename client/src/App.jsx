@@ -40,10 +40,10 @@ function AppRoutes() {
     verifyStoredSession();
   }, []);
 
-  function handleLogin(session) {
+function handleLogin(session) {
     storeSession(session);
     setCurrentUser(session.user);
-    navigate("/");
+    navigate("/", { replace: true });
   }
 
   function handleLogout() {
