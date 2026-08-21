@@ -1,28 +1,59 @@
-function formatPhotonFeature(feature) {
-  const props = feature.properties || {};
-  const coordinates = feature.geometry?.coordinates || [];
-  const parts = [props.name, props.city, props.state, props.country].filter(Boolean);
+const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+const mapboxEndpoint = "https://api.mapbox.com/geocoding/v5/mapbox.places";
+
+function buildMapboxParams(params = {}) {
+  const searchParams = new URLSearchParams({
+    country: "IN",
+    types: "place,locality,neighborhood",
+    access_token: mapboxToken,
+    ...params
+  });
+
+  return searchParams.toString();
+}
+
+function formatMapboxFeature(feature) {
+  const coordinates = feature.center || feature.geometry?.coordinates || [];
+  const placeName = feature.place_name || feature.text || "Selected locality";
 
   return {
-    id: `${props.osm_type || "osm"}-${props.osm_id || parts.join("-")}`,
-    name: props.name || props.city || "Selected locality",
-    placeFormatted: parts.slice(1).join(", "),
-    locality: parts.join(", "),
+    id: feature.id || placeName,
+    name: placeName,
+    placeFormatted: "",
+    locality: placeName,
     latitude: coordinates[1] || "",
     longitude: coordinates[0] || ""
   };
 }
 
-export const getLocationSuggestions = async (query) => {
-  if(!query || query.length < 3) {
+function hasCoordinates({ latitude, longitude } = {}) {
+  return latitude !== undefined && latitude !== null && latitude !== "" && longitude !== undefined && longitude !== null && longitude !== "";
+}
+
+function buildProximity({ latitude, longitude } = {}) {
+  return hasCoordinates({ latitude, longitude }) ? `${longitude},${latitude}` : undefined;
+}
+
+export const getLocationSuggestions = async (query, coordinates = {}) => {
+  if(!query || query.length < 3 || !mapboxToken) {
     return [];
   }
 
   try {
-    const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`);
+    const params = {
+      autocomplete: "true",
+      limit: "5"
+    };
+    const proximity = buildProximity(coordinates);
+
+    if(proximity) {
+      params.proximity = proximity;
+    }
+
+    const response = await fetch(`${mapboxEndpoint}/${encodeURIComponent(query)}.json?${buildMapboxParams(params)}`);
     const data = await response.json();
 
-    return (data.features || []).map(formatPhotonFeature);
+    return (data.features || []).map(formatMapboxFeature);
   } catch (error) {
     return [];
   }
@@ -53,6 +84,13 @@ export const getCurrentLocality = async () => {
     };
   }
 
+  if(!mapboxToken) {
+    return {
+      message: "Mapbox token is missing. Please type locality manually.",
+      success: false
+    };
+  }
+
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -60,25 +98,16 @@ export const getCurrentLocality = async () => {
           const latitude = position.coords.latitude;
           const longitude = position.coords.longitude;
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=jsonv2&email=demo@empowher.local`,
-            {
-              headers: {
-                "Accept": "application/json"
-              }
-            }
+            `${mapboxEndpoint}/${longitude},${latitude}.json?${buildMapboxParams()}`
           );
           const data = await response.json();
-          const address = data.address || {};
-          const locality = [
-            address.neighbourhood || address.suburb || address.city_district || address.city || address.town || address.village,
-            address.state,
-            address.country
-          ].filter(Boolean).join(", ");
+          const feature = (data.features || [])[0];
+          const locality = feature ? formatMapboxFeature(feature).locality : "";
 
           resolve({
             message: "Location detected",
             success: true,
-            locality: locality || data.display_name || "Detected location",
+            locality: locality || "Detected location",
             latitude,
             longitude
           });

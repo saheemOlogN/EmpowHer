@@ -1,5 +1,5 @@
 import { Bell, BriefcaseBusiness, HeartHandshake, ListChecks, MapPin, Search, Star, UsersRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import TrustSeal from "../components/TrustSeal.jsx";
@@ -43,6 +43,7 @@ function Dashboard({ currentUser, onUserUpdate }) {
   const [peopleSearch, setPeopleSearch] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const localitySearchRef = useRef(null);
 
   async function load() {
     setLoading(true);
@@ -95,7 +96,21 @@ function Dashboard({ currentUser, onUserUpdate }) {
 
   async function handleLocalityInput(value) {
     setLocalityDraft(value);
-    setLocalitySuggestions(await getLocationSuggestions(value));
+
+    if(localitySearchRef.current) {
+      window.clearTimeout(localitySearchRef.current);
+    }
+
+    if(!value || value.length < 3) {
+      setLocalitySuggestions([]);
+      return;
+    }
+
+    localitySearchRef.current = window.setTimeout(async () => {
+      const nextSuggestions = await getLocationSuggestions(value, localityCoords);
+
+      setLocalitySuggestions(nextSuggestions);
+    }, 300);
   }
 
   async function chooseLocality(suggestion) {
@@ -108,6 +123,9 @@ function Dashboard({ currentUser, onUserUpdate }) {
 
     setLocalityDraft(data.locality);
     setLocalityCoords({ latitude: data.latitude, longitude: data.longitude });
+    if(localitySearchRef.current) {
+      window.clearTimeout(localitySearchRef.current);
+    }
     setLocalitySuggestions([]);
 
     const summaryData = await getLocalitySummary(data.locality);

@@ -36,6 +36,7 @@ function Signup({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const otpRefs = useRef([]);
+  const localitySearchRef = useRef(null);
 
   const visibleStep = form.role === "worker" && step === "identity" ? "done" : step;
   const progressIndex = steps.indexOf(visibleStep);
@@ -50,7 +51,24 @@ function Signup({ onLogin }) {
 
   async function handleLocality(value) {
     updateForm("locality", value);
-    setSuggestions(await getLocationSuggestions(value));
+
+    if(localitySearchRef.current) {
+      window.clearTimeout(localitySearchRef.current);
+    }
+
+    if(!value || value.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    localitySearchRef.current = window.setTimeout(async () => {
+      const nextSuggestions = await getLocationSuggestions(value, {
+        latitude: form.latitude,
+        longitude: form.longitude
+      });
+
+      setSuggestions(nextSuggestions);
+    }, 300);
   }
 
   async function chooseSuggestion(suggestion) {
@@ -67,6 +85,9 @@ function Signup({ onLogin }) {
       latitude: data.latitude,
       longitude: data.longitude
     }));
+    if(localitySearchRef.current) {
+      window.clearTimeout(localitySearchRef.current);
+    }
     setSuggestions([]);
   }
 
@@ -86,6 +107,10 @@ function Signup({ onLogin }) {
       latitude: data.latitude,
       longitude: data.longitude
     }));
+    if(localitySearchRef.current) {
+      window.clearTimeout(localitySearchRef.current);
+    }
+    setSuggestions([]);
     toast.success(data.message);
   }
 
