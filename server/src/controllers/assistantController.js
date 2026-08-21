@@ -4,6 +4,13 @@ const systemPrompt = "You are a calm, practical safety assistant inside a hyperl
 
 export const askAssistant = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false
+            });
+        }
+
         const { message, locality } = req.body;
 
         if(!message) {
@@ -22,8 +29,9 @@ export const askAssistant = async (req, res) => {
         }
 
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const assistantModel = process.env.ASSISTANT_MODEL || "openai/gpt-oss-20b";
         const completion = await groq.chat.completions.create({
-            model: "llama-3.1-8b-instant",
+            model: assistantModel,
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: `Locality: ${locality || "unknown"}\nQuestion: ${message}` }
@@ -38,6 +46,8 @@ export const askAssistant = async (req, res) => {
             reply: completion.choices[0]?.message?.content || "I could not prepare a response just now."
         });
     } catch (error) {
+        console.error("Assistant provider error:", error.status || error.code || error.message);
+
         return res.status(500).json({
             message: "Assistant could not respond",
             success: false

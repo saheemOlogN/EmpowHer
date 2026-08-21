@@ -3,6 +3,13 @@ import User from "../models/User.js";
 
 export const createAlert = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false
+            });
+        }
+
         const user = await User.findById(req.user.userId);
         const { type, description, latitude, longitude, locality } = req.body;
 
@@ -39,6 +46,14 @@ export const createAlert = async (req, res) => {
 
 export const getAlerts = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false,
+                alerts: []
+            });
+        }
+
         const user = await User.findById(req.user.userId);
         const locality = req.query.locality || user.locality;
         const alerts = await Alert.find({ locality })
@@ -60,6 +75,13 @@ export const getAlerts = async (req, res) => {
 
 export const resolveAlert = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false
+            });
+        }
+
         const alert = await Alert.findById(req.params.alertId);
 
         if(!alert) {

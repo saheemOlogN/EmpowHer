@@ -40,6 +40,16 @@ export const getDashboard = async (req, res) => {
             });
         }
 
+        if(user.role === "worker") {
+            return res.status(200).json({
+                message:"Worker session fetched",
+                success:true,
+                user,
+                womenNearby: [],
+                workersNearby: []
+            });
+        }
+
         const womenNearby = user.role === "woman"
             ? await User.find({
                 _id: { $ne: user._id },
@@ -169,6 +179,15 @@ export const searchPeople = async (req, res) => {
 export const getLocalitySummary = async (req, res) => {
     try {
         const currentUser = await User.findById(req.user.userId);
+
+        if(currentUser.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false,
+                summary: null
+            });
+        }
+
         const locality = req.query.locality || currentUser.locality;
         const [womenCount, workerCount, activeAlerts, experiences, opportunities, professions] = await Promise.all([
             User.countDocuments({ role: "woman", locality }),

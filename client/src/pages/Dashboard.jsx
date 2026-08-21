@@ -1,16 +1,21 @@
-import { AlertTriangle, Bell, BriefcaseBusiness, HeartHandshake, ListChecks, MapPin, Search, Star, UserRoundCheck, UsersRound } from "lucide-react";
+import { AlertTriangle, Bell, BriefcaseBusiness, CalendarClock, CheckCircle2, HeartHandshake, ListChecks, MapPin, Search, Star, UserRoundCheck, UsersRound, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import {
+  completeBooking,
+  createBooking,
   getAlerts,
   getConnections,
   getDashboard,
   getLocalitySummary,
+  getMyBookings,
   getSharedLocations,
   markWorkerSafe,
   searchPeople,
   sendConnectionRequest,
+  updateBookingStatus,
+  updateBookingTracking,
   updateLocality
 } from "../services/api.js";
 import { getLocationSuggestions, getSelectedLocation } from "../services/location.js";
@@ -60,11 +65,22 @@ function EmptyState({ icon: Icon, message, action }) {
 }
 
 const categoryFilters = ["Teacher", "Housewife", "Student", "Nurse", "Tailor"];
+const bookingDefaults = {
+  taskType: "",
+  scheduledFor: "",
+  timeWindow: "",
+  problem: "",
+  quotation: "",
+  area: "",
+  exactAddress: "",
+  notes: ""
+};
 
 function Dashboard({ currentUser, onUserUpdate }) {
   const [dashboard, setDashboard] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [connections, setConnections] = useState({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
+  const [bookings, setBookings] = useState([]);
   const [sharedLocations, setSharedLocations] = useState([]);
   const [summary, setSummary] = useState(null);
   const [previewSummary, setPreviewSummary] = useState(null);
@@ -76,15 +92,18 @@ function Dashboard({ currentUser, onUserUpdate }) {
   const [localityLoading, setLocalityLoading] = useState(false);
   const [localityDialogOpen, setLocalityDialogOpen] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState("");
+  const [bookingWorker, setBookingWorker] = useState(null);
+  const [bookingForm, setBookingForm] = useState(bookingDefaults);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [dashboardData, alertData, connectionData, locationData, summaryData] = await Promise.all([
+    const [dashboardData, alertData, connectionData, bookingData, locationData, summaryData] = await Promise.all([
       getDashboard(),
       getAlerts(currentUser.locality),
       getConnections(),
+      getMyBookings(),
       getSharedLocations(),
       getLocalitySummary(currentUser.locality)
     ]);
@@ -102,6 +121,7 @@ function Dashboard({ currentUser, onUserUpdate }) {
 
     if(alertData.success) setAlerts(alertData.alerts);
     if(connectionData.success) setConnections(connectionData);
+    if(bookingData.success) setBookings(bookingData.bookings);
     if(locationData.success) setSharedLocations(locationData.locations);
     if(summaryData.success) setSummary(summaryData.summary);
     setLoading(false);
@@ -137,6 +157,47 @@ function Dashboard({ currentUser, onUserUpdate }) {
     const data = await markWorkerSafe(workerId, rating);
     setMessage(data.message);
     await load();
+  }
+
+  function openBooking(worker) {
+    setBookingWorker(worker);
+    setBookingForm({
+      ...bookingDefaults,
+      taskType: worker.workType || "",
+      area: currentUser.location?.area || currentUser.locality || ""
+    });
+  }
+
+  async function submitBooking(event) {
+    event.preventDefault();
+    const data = await createBooking({
+      ...bookingForm,
+      workerId: bookingWorker._id
+    });
+    setMessage(data.message);
+
+    if(data.success) {
+      setBookingWorker(null);
+      setBookingForm(bookingDefaults);
+      await load();
+    }
+  }
+
+  async function respondToBooking(bookingId, status) {
+    const data = await updateBookingStatus(bookingId, status);
+    setMessage(data.message);
+    await load();
+  }
+
+  async function markBookingComplete(bookingId) {
+    const data = await completeBooking(bookingId);
+    setMessage(data.message);
+    await load();
+  }
+
+  async function refreshBookingTracking() {
+    const data = await getMyBookings();
+    if(data.success) setBookings(data.bookings);
   }
 
   function handlePincodeInput(value) {
@@ -241,6 +302,9 @@ function Dashboard({ currentUser, onUserUpdate }) {
 
   const womenNearby = dashboard.womenNearby || [];
   const workersNearby = dashboard.workersNearby || [];
+  const workerQueue = bookings.filter((booking) => booking.status === "pending");
+  const acceptedWorkerBookings = bookings.filter((booking) => booking.status === "accepted");
+  const womanBookings = bookings.filter((booking) => ["pending", "accepted", "rejected", "active", "completed"].includes(booking.status));
   const activeAlerts = alerts.filter((alert) => alert.status === "active");
   const mapCenter = sharedLocations[0] ? [sharedLocations[0].latitude, sharedLocations[0].longitude] : [19.076, 72.8777];
 
@@ -351,6 +415,97 @@ function Dashboard({ currentUser, onUserUpdate }) {
       {currentUser.role !== "woman" && (
         <section className="page-panel">
           <p className="privacy-note">Worker accounts can view public locality stats and opportunities, but cannot search or connect with women.</p>
+        </section>
+      )}
+
+      {currentUser.role === "worker" && (
+        <section className="page-panel">
+          <div className="section-heading">
+            <div>
+              <h2>Request Queue</h2>
+              <p className="section-caption">{workerQueue.length} pending booking requests</p>
+            </div>
+          </div>
+          <div className="feed-list">
+            {workerQueue.length === 0 && <EmptyState icon={CalendarClock} message="No pending booking requests right now." />}
+            {workerQueue.map((booking) => (
+              <article key={booking._id} className="feed-card opportunity-card">
+                <div className="feed-card-top">
+                  <span className="category-tag">{booking.taskType}</span>
+                  <span className="data-label">{new Date(booking.scheduledFor).toLocaleString()}</span>
+                </div>
+                <h3>{booking.timeWindow}</h3>
+                <p>{booking.notes || "No extra notes shared."}</p>
+                <div className="feed-card-bottom">
+                  <span>{booking.area}</span>
+                  <div className="button-row">
+                    <button className="primary-button inline" onClick={() => respondToBooking(booking._id, "accepted")}><CheckCircle2 size={16} /> Accept</button>
+                    <button className="secondary-button small" onClick={() => respondToBooking(booking._id, "rejected")}><XCircle size={16} /> Reject</button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+          {acceptedWorkerBookings.length > 0 && (
+            <div className="feed-list">
+              {acceptedWorkerBookings.map((booking) => (
+                <article key={booking._id} className="feed-card opportunity-card">
+                  <div className="feed-card-top">
+                    <span className="category-tag">Accepted</span>
+                    <span className="data-label">{new Date(booking.scheduledFor).toLocaleString()}</span>
+                  </div>
+                  <h3>{booking.taskType}</h3>
+                  <p>{booking.exactAddress ? `Address unlocked: ${booking.exactAddress}` : "Exact address unlocks at the confirmed time."}</p>
+                  <div className="feed-card-bottom">
+                    <span>{booking.area} · in-app contact only</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {currentUser.role === "woman" && womanBookings.length > 0 && (
+        <section className="page-panel">
+          <div className="section-heading">
+            <div>
+              <h2>Your Bookings</h2>
+              <p className="section-caption">Worker contact stays inside EmpowHer.</p>
+            </div>
+          </div>
+          <div className="feed-list">
+            {womanBookings.map((booking) => (
+              <article key={booking._id} className="feed-card opportunity-card">
+                <div className="feed-card-top">
+                  <span className="category-tag">{booking.status}</span>
+                  <span className="data-label">{new Date(booking.scheduledFor).toLocaleString()}</span>
+                </div>
+                <h3>{booking.taskType}</h3>
+                <p>{booking.status === "accepted" || booking.status === "active" ? `${booking.worker?.name} confirmed ${booking.timeWindow}. Contact: in-app only.` : booking.notification?.message || booking.problem}</p>
+                {booking.status === "active" && booking.tracking?.latitude && booking.tracking?.longitude && (
+                  <MapContainer center={[booking.tracking.latitude, booking.tracking.longitude]} zoom={14} className="map-panel">
+                    <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <Marker position={[booking.tracking.latitude, booking.tracking.longitude]}>
+                      <Popup>{booking.worker?.name || "Worker"} is active on this service</Popup>
+                    </Marker>
+                  </MapContainer>
+                )}
+                <div className="feed-card-bottom">
+                  <span>{booking.worker?.ratingLabel || `${booking.area} · ${booking.timeWindow}`} · {booking.quotation}</span>
+                  {booking.status === "active" && (
+                    <button className="secondary-button small" onClick={refreshBookingTracking}><MapPin size={16} /> Refresh track</button>
+                  )}
+                  {(booking.status === "accepted" || booking.status === "active") && (
+                    <button className="secondary-button small" onClick={() => markBookingComplete(booking._id)}><CheckCircle2 size={16} /> Complete</button>
+                  )}
+                  {booking.status === "completed" && booking.worker?._id && (
+                    <RatingPicker onRate={(rating) => rateWorker(booking.worker._id, rating)} />
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
       )}
 
@@ -482,12 +637,46 @@ function Dashboard({ currentUser, onUserUpdate }) {
                   <StarRating value={worker.safetyRating} count={worker.ratingCount} />
                 </div>
                 {worker.isRecommended && <BadgePill variant="success">Community recommended</BadgePill>}
-                {currentUser.role === "woman" && <RatingPicker onRate={(rating) => rateWorker(worker._id, rating)} />}
+                {currentUser.role === "woman" && (
+                  <button className="small-button" onClick={() => openBooking(worker)}>Request booking</button>
+                )}
               </article>
             ))}
           </div>
         </div>
       </section>
+
+      {bookingWorker && (
+        <form className="modal-card" onSubmit={submitBooking}>
+          <div className="section-heading">
+            <div>
+              <h2>Request {bookingWorker.name}</h2>
+              <p className="section-caption">Only task details, area, time, and notes go to the worker until acceptance.</p>
+            </div>
+            <button type="button" className="secondary-button small" onClick={() => setBookingWorker(null)}>Close</button>
+          </div>
+          <label className="field-label" htmlFor="taskType">Task type</label>
+          <input id="taskType" className="field-input" value={bookingForm.taskType} onChange={(event) => setBookingForm({ ...bookingForm, taskType: event.target.value })} required />
+          <label className="field-label" htmlFor="scheduledFor">Date and time</label>
+          <input id="scheduledFor" className="field-input" type="datetime-local" value={bookingForm.scheduledFor} onChange={(event) => setBookingForm({ ...bookingForm, scheduledFor: event.target.value })} required />
+          <label className="field-label" htmlFor="timeWindow">Time window</label>
+          <input id="timeWindow" className="field-input" value={bookingForm.timeWindow} onChange={(event) => setBookingForm({ ...bookingForm, timeWindow: event.target.value })} placeholder="4:00 PM - 6:00 PM" required />
+          <label className="field-label" htmlFor="problem">Problem / work details</label>
+          <textarea id="problem" className="field-input textarea" value={bookingForm.problem} onChange={(event) => setBookingForm({ ...bookingForm, problem: event.target.value })} placeholder="Describe the problem or work needed" required />
+          <label className="field-label" htmlFor="quotation">Quotation / budget</label>
+          <input id="quotation" className="field-input" value={bookingForm.quotation} onChange={(event) => setBookingForm({ ...bookingForm, quotation: event.target.value })} placeholder="Example: Rs. 500 or please quote in app" required />
+          <label className="field-label" htmlFor="area">General area</label>
+          <input id="area" className="field-input" value={bookingForm.area} onChange={(event) => setBookingForm({ ...bookingForm, area: event.target.value })} required />
+          <label className="field-label" htmlFor="exactAddress">Exact address</label>
+          <input id="exactAddress" className="field-input" value={bookingForm.exactAddress} onChange={(event) => setBookingForm({ ...bookingForm, exactAddress: event.target.value })} required />
+          <label className="field-label" htmlFor="notes">Notes</label>
+          <textarea id="notes" className="field-input textarea" value={bookingForm.notes} onChange={(event) => setBookingForm({ ...bookingForm, notes: event.target.value })} />
+          <div className="button-row">
+            <button className="primary-button">Send request</button>
+            <button type="button" className="secondary-button" onClick={() => setBookingWorker(null)}>Cancel</button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
+import Booking from "../models/Booking.js";
 import User from "../models/User.js";
 import WorkerRating from "../models/WorkerRating.js";
+
+const serializeWorkerRating = (worker) => ({
+    _id: worker._id,
+    safetyRating: worker.safetyRating || 0,
+    ratingCount: worker.ratingCount || 0,
+    ratingLabel: `${worker.safetyRating || 0} from ${worker.ratingCount || 0} ratings`
+});
 
 export const markWorkerSafe = async (req, res) => {
     try {
@@ -68,6 +76,19 @@ export const markWorkerSafe = async (req, res) => {
             });
         }
 
+        const completedBooking = await Booking.exists({
+            woman: woman._id,
+            worker: worker._id,
+            status: "completed"
+        });
+
+        if(!completedBooking) {
+            return res.status(403).json({
+                message:"You can rate a worker after a completed booking",
+                success:false
+            });
+        }
+
         await WorkerRating.findOneAndUpdate(
             {
                 worker: worker._id,
@@ -96,12 +117,50 @@ export const markWorkerSafe = async (req, res) => {
         return res.status(200).json({
             message:"Worker marked safe",
             success:true,
-            worker
+            worker: {
+                ...serializeWorkerRating(worker),
+                name: worker.name,
+                role: worker.role,
+                workType: worker.workType,
+                locality: worker.locality,
+                isRecommended: worker.isRecommended
+            }
         });
     } catch (error) {
         return res.status(500).json({
             message:"Could not mark worker safe",
             success:false
+        });
+    }
+};
+
+export const getMyRatings = async (req, res) => {
+    try {
+        if(req.user.role !== "worker") {
+            return res.status(403).json({
+                message: "Only workers can view worker ratings",
+                success: false
+            });
+        }
+
+        const worker = await User.findById(req.user.userId).select("role safetyRating ratingCount");
+
+        if(!worker || worker.role !== "worker") {
+            return res.status(404).json({
+                message: "Worker not found",
+                success: false
+            });
+        }
+
+        return res.status(200).json({
+            message: "Ratings fetched",
+            success: true,
+            rating: serializeWorkerRating(worker)
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Could not fetch ratings",
+            success: false
         });
     }
 };

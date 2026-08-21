@@ -5,6 +5,13 @@ const populateExperience = (query) => query.populate("sharedBy", "name locality"
 
 export const createExperience = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false
+            });
+        }
+
         const user = await User.findById(req.user.userId);
         const { title, content, category = "general" } = req.body;
 
@@ -40,6 +47,14 @@ export const createExperience = async (req, res) => {
 
 export const getExperiences = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false,
+                experiences: []
+            });
+        }
+
         const user = await User.findById(req.user.userId);
         const filter = req.query.all === "true" ? {} : { locality: req.query.locality || user.locality };
         const experiences = await populateExperience(Experience.find(filter));
@@ -59,6 +74,13 @@ export const getExperiences = async (req, res) => {
 
 export const toggleLike = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false
+            });
+        }
+
         const experience = await Experience.findById(req.params.experienceId);
 
         if(!experience) {

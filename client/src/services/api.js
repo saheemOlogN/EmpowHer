@@ -88,6 +88,34 @@ export const markWorkerSafe = (workerId, rating) => request(`/workers/${workerId
   body: JSON.stringify({ rating })
 });
 
+export const getMyBookings = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/bookings${query ? `?${query}` : ""}`);
+};
+
+export const createBooking = (payload) => request("/bookings", {
+  method: "POST",
+  body: JSON.stringify(payload)
+});
+
+export const updateBookingStatus = (bookingId, status) => request(`/bookings/${bookingId}/status`, {
+  method: "PATCH",
+  body: JSON.stringify({ status })
+});
+
+export const startBookingService = (bookingId) => request(`/bookings/${bookingId}/start`, {
+  method: "PATCH"
+});
+
+export const updateBookingTracking = (bookingId, payload) => request(`/bookings/${bookingId}/tracking`, {
+  method: "PATCH",
+  body: JSON.stringify(payload)
+});
+
+export const completeBooking = (bookingId) => request(`/bookings/${bookingId}/complete`, {
+  method: "PATCH"
+});
+
 export const getAlerts = (locality) => request(`/alerts${locality ? `?locality=${encodeURIComponent(locality)}` : ""}`);
 
 export const createAlert = (payload) => request("/alerts", {
@@ -153,6 +181,8 @@ export const markCheckinOverdue = (checkinId) => request(`/checkins/${checkinId}
 export const requestWorkerIdVerification = (workerId) => request(`/workers/${workerId}/verify-id`, {
   method: "POST"
 });
+
+export const getMyWorkerRatings = () => request("/workers/me/ratings");
 
 export const updateLocation = (userId, payload) => request(`/users/${userId}/location`, {
   method: "PATCH",

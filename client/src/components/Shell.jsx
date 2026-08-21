@@ -7,6 +7,7 @@ import {
   LogOut,
   MapPin,
   Radio,
+  Star,
   UsersRound,
   Wifi
 } from "lucide-react";
@@ -36,6 +37,11 @@ const generalNavItems = [
 const safetyNavItems = [
   { to: "/alerts", label: "Alerts", icon: Bell },
   { to: "/safety-pin", label: "Safety Pin", icon: Wifi }
+];
+
+const workerNavItems = [
+  { to: "/requests", label: "Requests", icon: ListChecks },
+  { to: "/my-ratings", label: "My Ratings", icon: Star }
 ];
 
 function getWelcome(user) {
@@ -166,6 +172,12 @@ function Shell({ currentUser, onLogout }) {
   }, []);
 
   useEffect(() => {
+    if(currentUser.role === "worker") {
+      setNotifications([]);
+      setUnreadCount(0);
+      return undefined;
+    }
+
     let cancelled = false;
 
     async function pollNotifications() {
@@ -211,7 +223,7 @@ function Shell({ currentUser, onLogout }) {
       cancelled = true;
       window.clearInterval(pollId);
     };
-  }, [currentUser.locality]);
+  }, [currentUser.locality, currentUser.role]);
 
   function toggleNotifications() {
     setNotificationsOpen((open) => !open);
@@ -230,7 +242,7 @@ function Shell({ currentUser, onLogout }) {
         </div>
 
         <nav className="sidebar-nav">
-          {generalNavItems.map((item) => {
+          {(currentUser.role === "worker" ? workerNavItems : generalNavItems).map((item) => {
             const Icon = item.icon;
             return (
               <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive ? "side-link-active" : "side-link"}>
@@ -240,18 +252,20 @@ function Shell({ currentUser, onLogout }) {
             );
           })}
 
-          <div className="nav-section">
-            <span>Safety</span>
-            {safetyNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive ? "side-link-active safety-link" : "side-link safety-link"}>
-                  <Icon size={24} />
-                  {item.label}
-                </NavLink>
-              );
-            })}
-          </div>
+          {currentUser.role === "woman" && (
+            <div className="nav-section">
+              <span>Safety</span>
+              {safetyNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive ? "side-link-active safety-link" : "side-link safety-link"}>
+                    <Icon size={24} />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         <button className="logout-button" onClick={() => { onLogout(); navigate("/login"); }}>
@@ -268,30 +282,32 @@ function Shell({ currentUser, onLogout }) {
           </div>
           <div className="topbar-actions">
             <div className="status-actions-row">
-              <div className="notification-wrap">
-                <button className="notification-button" onClick={toggleNotifications} aria-label="Open notifications">
-                  <Bell size={19} />
-                  {unreadCount > 0 && <span>{unreadCount}</span>}
-                </button>
-                {notificationsOpen && (
-                  <div className="notification-menu">
-                    <div className="notification-menu-head">
-                      <strong>Updates</strong>
-                      <small>{notifications.length ? `${notifications.length} recent` : "All quiet"}</small>
+              {currentUser.role === "woman" && (
+                <div className="notification-wrap">
+                  <button className="notification-button" onClick={toggleNotifications} aria-label="Open notifications">
+                    <Bell size={19} />
+                    {unreadCount > 0 && <span>{unreadCount}</span>}
+                  </button>
+                  {notificationsOpen && (
+                    <div className="notification-menu">
+                      <div className="notification-menu-head">
+                        <strong>Updates</strong>
+                        <small>{notifications.length ? `${notifications.length} recent` : "All quiet"}</small>
+                      </div>
+                      {notifications.length === 0 ? (
+                        <p className="notification-empty">No new alerts or community events yet.</p>
+                      ) : (
+                        notifications.map((item) => (
+                          <article key={item.id} className={`notification-item ${item.tone}`}>
+                            <strong>{item.title}</strong>
+                            <p>{item.detail}</p>
+                          </article>
+                        ))
+                      )}
                     </div>
-                    {notifications.length === 0 ? (
-                      <p className="notification-empty">No new alerts or community events yet.</p>
-                    ) : (
-                      notifications.map((item) => (
-                        <article key={item.id} className={`notification-item ${item.tone}`}>
-                          <strong>{item.title}</strong>
-                          <p>{item.detail}</p>
-                        </article>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {currentUser.role === "woman" && (
                 <button className={`live-switch ${sharing ? "active" : ""}`} onClick={toggleSharing}>
@@ -308,7 +324,7 @@ function Shell({ currentUser, onLogout }) {
         <Outlet />
       </section>
 
-      <AssistantBubble currentUser={currentUser} />
+      {currentUser.role === "woman" && <AssistantBubble currentUser={currentUser} />}
     </main>
   );
 }

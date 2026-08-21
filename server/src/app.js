@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import alertRoutes from "./routes/alertRoutes.js";
 import assistantRoutes from "./routes/assistantRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
 import checkinRoutes from "./routes/checkinRoutes.js";
 import connectionRoutes from "./routes/connectionRoutes.js";
 import experienceRoutes from "./routes/experienceRoutes.js";
@@ -30,6 +31,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/workers", workerRoutes);
+app.use("/api/bookings", bookingRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/experiences", experienceRoutes);
 app.use("/api/opportunities", opportunityRoutes);

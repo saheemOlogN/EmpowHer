@@ -10,6 +10,8 @@ import Opportunities from "./pages/Opportunities.jsx";
 import SafetyPin from "./pages/SafetyPin.jsx";
 import Signin from "./pages/Signin.jsx";
 import Signup from "./pages/Signup.jsx";
+import WorkerRatings from "./pages/WorkerRatings.jsx";
+import WorkerRequests from "./pages/WorkerRequests.jsx";
 import { clearSession, getDashboard, getStoredUser, getToken, storeSession } from "./services/api.js";
 import { Toaster } from "sonner";
 
@@ -64,6 +66,7 @@ function handleLogin(session) {
   const protectedShell = currentUser
     ? <Shell currentUser={currentUser} onLogout={handleLogout} />
     : <Navigate to="/login" replace />;
+  const isWorker = currentUser?.role === "worker";
 
   return (
     <>
@@ -71,13 +74,24 @@ function handleLogin(session) {
         <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <Signin onLogin={handleLogin} />} />
         <Route path="/signup" element={currentUser ? <Navigate to="/" replace /> : <Signup onLogin={handleLogin} />} />
         <Route element={protectedShell}>
-          <Route path="/" element={<Dashboard currentUser={currentUser} onUserUpdate={handleUserUpdate} />} />
-          <Route path="/connections" element={<Connections currentUser={currentUser} />} />
-          <Route path="/opportunities" element={<Opportunities currentUser={currentUser} />} />
-          <Route path="/alerts" element={<Alerts currentUser={currentUser} />} />
-          <Route path="/experiences" element={<Experiences currentUser={currentUser} />} />
-          <Route path="/assistant" element={<Assistant currentUser={currentUser} />} />
-          <Route path="/safety-pin" element={<SafetyPin />} />
+          {isWorker ? (
+            <>
+              <Route path="/" element={<Navigate to="/requests" replace />} />
+              <Route path="/requests" element={<WorkerRequests currentUser={currentUser} />} />
+              <Route path="/my-ratings" element={<WorkerRatings currentUser={currentUser} />} />
+              <Route path="*" element={<Navigate to="/requests" replace />} />
+            </>
+          ) : (
+            <>
+              <Route path="/" element={<Dashboard currentUser={currentUser} onUserUpdate={handleUserUpdate} />} />
+              <Route path="/connections" element={<Connections currentUser={currentUser} />} />
+              <Route path="/opportunities" element={<Opportunities currentUser={currentUser} />} />
+              <Route path="/alerts" element={<Alerts currentUser={currentUser} />} />
+              <Route path="/experiences" element={<Experiences currentUser={currentUser} />} />
+              <Route path="/assistant" element={<Assistant currentUser={currentUser} />} />
+              <Route path="/safety-pin" element={<SafetyPin />} />
+            </>
+          )}
         </Route>
       </Routes>
       <Toaster richColors position="top-right" />

@@ -47,6 +47,14 @@ export const createOpportunity = async (req, res) => {
 
 export const getOpportunities = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers can only access requests and ratings",
+                success: false,
+                opportunities: []
+            });
+        }
+
         const user = await User.findById(req.user.userId);
         const search = (req.query.search || "").trim();
         const locality = req.query.locality || user.locality;
@@ -66,11 +74,7 @@ export const getOpportunities = async (req, res) => {
 
         const query = Opportunity.find(filter).sort({ createdAt: -1 });
 
-        if(req.user.role === "woman") {
-            query.populate("postedBy", "name locality profession maritalStatus");
-        } else {
-            query.select(publicOpportunityFields);
-        }
+        query.populate("postedBy", "name locality profession maritalStatus");
 
         const opportunities = await query;
 
