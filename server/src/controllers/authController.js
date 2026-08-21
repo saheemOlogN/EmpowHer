@@ -16,7 +16,7 @@ const publicUser = (user) => {
     return payload;
 };
 
-const validateSignupBasics = ({ name, phone, email, password, role, gender, locality }) => {
+const validateSignupBasics = ({ name, phone, email, password, role, gender, locality, profession, maritalStatus }) => {
     if(!name || !phone || !email || !password || !role || !gender || !locality) {
         return "Please fill all required fields";
     }
@@ -29,18 +29,22 @@ const validateSignupBasics = ({ name, phone, email, password, role, gender, loca
         return "Women community accounts must use female as gender";
     }
 
+    if(role === "woman" && (!profession || !maritalStatus)) {
+        return "Profession and marital status are required for women profiles";
+    }
+
     return "";
 };
 
 export const sendOtp = async (req, res) => {
     try {
-        const { name, phone, email, password, role, gender, locality } = req.body;
+        const { name, phone, email, password, role, gender, locality, profession, maritalStatus } = req.body;
 
         if(mongoose.connection.readyState !== 1) {
             return res.status(503).json({ message: "Database is not connected", success: false });
         }
 
-        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality });
+        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality, profession, maritalStatus });
 
         if(validationMessage) {
             return res.status(400).json({ message: validationMessage, success: false });
@@ -166,6 +170,8 @@ export const completeSignup = async (req, res) => {
             role,
             gender,
             workType,
+            profession,
+            maritalStatus,
             locality,
             latitude,
             longitude
@@ -175,7 +181,7 @@ export const completeSignup = async (req, res) => {
             return res.status(503).json({ message: "Database is not connected", success: false });
         }
 
-        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality });
+        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality, profession, maritalStatus });
 
         if(validationMessage) {
             return res.status(400).json({ message: validationMessage, success: false });
@@ -215,6 +221,8 @@ export const completeSignup = async (req, res) => {
             role,
             gender,
             workType: workType || "",
+            profession: role === "woman" ? profession : (profession || workType || ""),
+            maritalStatus: role === "woman" ? maritalStatus : "",
             locality,
             latitude: latitude || null,
             longitude: longitude || null,

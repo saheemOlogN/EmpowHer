@@ -118,7 +118,7 @@
   .alert-strip { padding: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .alert-strip div { display: flex; gap: 8px; flex-wrap: wrap; }
   .alert-strip span { border: 1px solid var(--color-line); border-radius: 8px; padding: 6px 10px; color: var(--color-ink); font-size: 0.86rem; background: var(--color-canvas); }
-  .quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .quick-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
   .action-card { min-height: 96px; padding: 18px; border-radius: 8px; border: 1px solid var(--color-line); background: var(--color-surface); display: flex; align-items: center; gap: 12px; font-family: "Space Grotesk", sans-serif; font-weight: 700; color: var(--color-ink); transition: 150ms ease; }
   .action-card:hover, .feed-card:hover, .list-card:hover { box-shadow: 0 10px 24px color-mix(in srgb, var(--color-ink) 8%, transparent); }
   .page-panel { padding: 18px; }
@@ -133,12 +133,24 @@
   .star-picker button:hover, .star-picker button:focus, .rating-line { color: var(--color-amber); }
   .empty-text { padding: 16px; color: var(--color-muted); font-weight: 600; }
   .map-panel { width: 100%; height: 320px; border-radius: 8px; border: 1px solid var(--color-line); overflow: hidden; margin-top: 14px; }
+  .locality-panel { display: grid; gap: 14px; }
+  .locality-tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr); gap: 12px; align-items: start; }
+  .search-row { min-height: 44px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-surface); padding: 0 12px; color: var(--color-muted); }
+  .search-row input { width: 100%; border: 0; outline: 0; color: var(--color-ink); background: transparent; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .summary-grid div { min-height: 88px; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-canvas); padding: 14px; display: grid; align-content: center; gap: 4px; }
+  .summary-grid strong { font-family: "Space Grotesk", sans-serif; font-size: 1.8rem; color: var(--color-navy); }
+  .summary-grid span, .tag-row span { color: var(--color-muted); font-weight: 700; font-size: 0.86rem; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag-row span { border: 1px solid var(--color-line); border-radius: 8px; padding: 7px 10px; background: var(--color-canvas); }
+  .search-results { margin-top: 4px; }
   .feed-card { padding: 18px; border-left-width: 5px; transition: 150ms ease; }
   .feed-card h3, .feed-card p { margin: 10px 0; }
   .alert-unsafe_area, .alert-harassment, .experience-warning { border-left-color: var(--color-coral); }
   .alert-suspicious_activity { border-left-color: var(--color-amber); }
   .alert-other, .experience-general { border-left-color: var(--color-muted); }
   .experience-safety_tip, .experience-positive_experience { border-left-color: var(--color-sage); }
+  .opportunity-card { border-left-color: var(--color-amber); }
   .status-active { font-family: "IBM Plex Mono", monospace; color: var(--color-coral); font-size: 0.78rem; letter-spacing: 0.08em; }
   .category-tag { display: inline-flex; align-items: center; gap: 7px; font-family: "IBM Plex Mono", monospace; color: var(--color-ink); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; }
   .category-tag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--color-sage); }
@@ -189,7 +201,7 @@
 }
 
 @media (max-width: 980px) {
-  .login-grid, .app-shell, .dashboard-columns, .quick-grid { grid-template-columns: 1fr; }
+  .login-grid, .app-shell, .dashboard-columns, .quick-grid, .locality-tools, .summary-grid { grid-template-columns: 1fr; }
   .login-brand { min-height: auto; }
   .sidebar { min-height: auto; position: static; }
   .topbar, .alert-strip, .page-title-row, .feed-card-top, .feed-card-bottom { align-items: flex-start; flex-direction: column; }

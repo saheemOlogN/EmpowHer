@@ -37,6 +37,15 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: ""
         },
+        profession: {
+            type: String,
+            default: ""
+        },
+        maritalStatus: {
+            type: String,
+            enum: ["single", "married", "widowed", "separated", "prefer_not_to_say", ""],
+            default: ""
+        },
         locality: {
             type: String,
             required: true

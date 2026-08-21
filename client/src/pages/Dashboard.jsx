@@ -1,4 +1,4 @@
-import { Bell, HeartHandshake, MapPin, Star, UsersRound } from "lucide-react";
+import { Bell, BriefcaseBusiness, HeartHandshake, ListChecks, MapPin, Search, Star, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
@@ -7,10 +7,14 @@ import {
   getAlerts,
   getConnections,
   getDashboard,
+  getLocalitySummary,
   getSharedLocations,
   markWorkerSafe,
-  sendConnectionRequest
+  searchPeople,
+  sendConnectionRequest,
+  updateLocality
 } from "../services/api.js";
+import { getLocationSuggestions, getSelectedLocation } from "../services/location.js";
 
 function RatingPicker({ onRate }) {
   const [hover, setHover] = useState(0);
@@ -26,21 +30,28 @@ function RatingPicker({ onRate }) {
   );
 }
 
-function Dashboard({ currentUser }) {
+function Dashboard({ currentUser, onUserUpdate }) {
   const [dashboard, setDashboard] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [connections, setConnections] = useState({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
   const [sharedLocations, setSharedLocations] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [peopleResults, setPeopleResults] = useState([]);
+  const [localityDraft, setLocalityDraft] = useState(currentUser.locality);
+  const [localityCoords, setLocalityCoords] = useState({ latitude: currentUser.latitude || null, longitude: currentUser.longitude || null });
+  const [localitySuggestions, setLocalitySuggestions] = useState([]);
+  const [peopleSearch, setPeopleSearch] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [dashboardData, alertData, connectionData, locationData] = await Promise.all([
+    const [dashboardData, alertData, connectionData, locationData, summaryData] = await Promise.all([
       getDashboard(),
       getAlerts(currentUser.locality),
       getConnections(),
-      getSharedLocations()
+      getSharedLocations(),
+      getLocalitySummary(currentUser.locality)
     ]);
 
     if(dashboardData.success) {
@@ -57,12 +68,15 @@ function Dashboard({ currentUser }) {
     if(alertData.success) setAlerts(alertData.alerts);
     if(connectionData.success) setConnections(connectionData);
     if(locationData.success) setSharedLocations(locationData.locations);
+    if(summaryData.success) setSummary(summaryData.summary);
     setLoading(false);
   }
 
   useEffect(() => {
+    setLocalityDraft(currentUser.locality);
+    setLocalityCoords({ latitude: currentUser.latitude || null, longitude: currentUser.longitude || null });
     load();
-  }, []);
+  }, [currentUser._id, currentUser.locality]);
 
   const outgoingIds = useMemo(() => new Set(connections.pendingOutgoing.map((connection) => String(connection.recipient._id))), [connections]);
   const connectedIds = useMemo(() => new Set(connections.accepted.flatMap((connection) => [String(connection.requester._id), String(connection.recipient._id)])), [connections]);
@@ -77,6 +91,51 @@ function Dashboard({ currentUser }) {
     const data = await markWorkerSafe(workerId, rating);
     setMessage(data.message);
     await load();
+  }
+
+  async function handleLocalityInput(value) {
+    setLocalityDraft(value);
+    setLocalitySuggestions(await getLocationSuggestions(value));
+  }
+
+  async function chooseLocality(suggestion) {
+    const data = await getSelectedLocation(suggestion);
+
+    if(!data.success) {
+      setMessage(data.message);
+      return;
+    }
+
+    setLocalityDraft(data.locality);
+    setLocalityCoords({ latitude: data.latitude, longitude: data.longitude });
+    setLocalitySuggestions([]);
+
+    const summaryData = await getLocalitySummary(data.locality);
+    if(summaryData.success) setSummary(summaryData.summary);
+  }
+
+  async function saveLocality() {
+    const data = await updateLocality(currentUser._id, {
+      locality: localityDraft,
+      latitude: localityCoords.latitude,
+      longitude: localityCoords.longitude
+    });
+    setMessage(data.message);
+
+    if(data.success) {
+      onUserUpdate(data.user);
+    }
+  }
+
+  async function runPeopleSearch(value) {
+    setPeopleSearch(value);
+
+    if(currentUser.role !== "woman") {
+      return;
+    }
+
+    const data = await searchPeople({ locality: localityDraft || currentUser.locality, search: value });
+    if(data.success) setPeopleResults(data.people);
   }
 
   if(loading && !dashboard) {
@@ -104,8 +163,68 @@ function Dashboard({ currentUser }) {
 
       <section className="quick-grid">
         <Link className="action-card" to="/connections"><UsersRound />Connections</Link>
+        <Link className="action-card" to="/opportunities"><ListChecks />Opportunities</Link>
         <Link className="action-card" to="/experiences"><HeartHandshake />Experiences</Link>
         <Link className="action-card" to="/alerts"><Bell />Raise alert</Link>
+      </section>
+
+      <section className="page-panel locality-panel">
+        <div className="section-heading">
+          <div>
+            <p className="data-label">CHANGE OR SCOUT LOCALITY</p>
+            <h2>Locality summary</h2>
+          </div>
+          <button className="small-button" onClick={saveLocality}>Change locality</button>
+        </div>
+        <div className="locality-tools">
+          <div className="relative">
+            <input className="field-input" value={localityDraft} onChange={(event) => handleLocalityInput(event.target.value)} placeholder="Search or enter locality" />
+            {localitySuggestions.length > 0 && (
+              <div className="suggestions">
+                {localitySuggestions.map((suggestion) => (
+                  <button type="button" key={suggestion.id} onClick={() => chooseLocality(suggestion)}>
+                    {suggestion.name}
+                    {suggestion.placeFormatted && <span>{suggestion.placeFormatted}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {currentUser.role === "woman" ? (
+            <div className="search-row">
+              <Search size={17} />
+              <input value={peopleSearch} onChange={(event) => runPeopleSearch(event.target.value)} placeholder="Search teacher, housewife, student" />
+            </div>
+          ) : (
+            <p className="privacy-note">Worker accounts can view public locality stats and opportunities, but cannot search or connect with women.</p>
+          )}
+        </div>
+        {summary && (
+          <div className="summary-grid">
+            <div><strong>{summary.womenCount}</strong><span>women profiles</span></div>
+            <div><strong>{summary.workerCount}</strong><span>workers</span></div>
+            <div><strong>{summary.activeAlerts}</strong><span>active alerts</span></div>
+            <div><strong>{summary.openOpportunities.length}</strong><span>open tasks</span></div>
+          </div>
+        )}
+        {summary?.professions?.length > 0 && (
+          <div className="tag-row">
+            {summary.professions.map((item) => <span key={item.title}>{item.title} · {item.count}</span>)}
+          </div>
+        )}
+        {currentUser.role === "woman" && peopleResults.length > 0 && (
+          <div className="card-list search-results">
+            {peopleResults.map((person) => (
+              <article key={person._id} className="list-card">
+                <div>
+                  <h3>{person.name}</h3>
+                  <p><BriefcaseBusiness size={14} /> {person.profession || "Community member"} · {person.maritalStatus?.replaceAll("_", " ") || "status not shared"}</p>
+                </div>
+                <button className="small-button" onClick={() => requestConnection(person._id)}>Connect</button>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       {sharedLocations.length > 0 ? (
@@ -145,8 +264,8 @@ function Dashboard({ currentUser }) {
               return (
                 <article key={woman._id} className="list-card">
                   <div>
-                    <h3>{woman.name}</h3>
-                    <p><MapPin size={14} /> {woman.locality}</p>
+                  <h3>{woman.name}</h3>
+                    <p><MapPin size={14} /> {woman.locality} · {woman.profession || "Community member"}</p>
                   </div>
                   {connected ? <TrustSeal label="CONNECTED" /> : (
                     <button className="small-button" disabled={requested} onClick={() => requestConnection(woman._id)}>

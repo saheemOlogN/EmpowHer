@@ -3,6 +3,7 @@ import {
   Bot,
   HeartHandshake,
   Home,
+  ListChecks,
   LogOut,
   MapPin,
   Radio,
@@ -18,6 +19,7 @@ import { AssistantBubble } from "./AssistantChat.jsx";
 const navItems = [
   { to: "/", label: "Dashboard", icon: Home },
   { to: "/connections", label: "Connections", icon: UsersRound },
+  { to: "/opportunities", label: "Opportunities", icon: ListChecks },
   { to: "/alerts", label: "Alerts", icon: Bell },
   { to: "/experiences", label: "Experiences", icon: HeartHandshake },
   { to: "/assistant", label: "Assistant", icon: Bot },
@@ -129,16 +131,16 @@ function Shell({ currentUser, onLogout }) {
           <div>
             <p className="data-label">SIGNED IN AS {currentUser.role}</p>
             <h1>{currentUser.name}</h1>
-            <span className="locality-line"><MapPin size={16} /> {currentUser.locality}</span>
-          </div>
-          <div className="topbar-actions">
+          <span className="locality-line"><MapPin size={16} /> {currentUser.locality}</span>
+        </div>
+          {currentUser.role === "woman" && <div className="topbar-actions">
             <button className={`live-switch ${sharing ? "active" : ""}`} onClick={toggleSharing}>
               <span className="switch-track"><span /></span>
               <Radio size={17} />
               Share my live location
             </button>
             {status && <p className="share-status">{status}</p>}
-          </div>
+          </div>}
         </header>
 
         <Outlet />

@@ -6,6 +6,7 @@ import Assistant from "./pages/Assistant.jsx";
 import Connections from "./pages/Connections.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Experiences from "./pages/Experiences.jsx";
+import Opportunities from "./pages/Opportunities.jsx";
 import SafetyPin from "./pages/SafetyPin.jsx";
 import Signin from "./pages/Signin.jsx";
 import Signup from "./pages/Signup.jsx";
@@ -46,6 +47,11 @@ function handleLogin(session) {
     navigate("/", { replace: true });
   }
 
+  function handleUserUpdate(user) {
+    setCurrentUser(user);
+    localStorage.setItem("empowherUser", JSON.stringify(user));
+  }
+
   function handleLogout() {
     clearSession();
     setCurrentUser(null);
@@ -65,8 +71,9 @@ function handleLogin(session) {
         <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <Signin onLogin={handleLogin} />} />
         <Route path="/signup" element={currentUser ? <Navigate to="/" replace /> : <Signup onLogin={handleLogin} />} />
         <Route element={protectedShell}>
-          <Route path="/" element={<Dashboard currentUser={currentUser} />} />
+          <Route path="/" element={<Dashboard currentUser={currentUser} onUserUpdate={handleUserUpdate} />} />
           <Route path="/connections" element={<Connections currentUser={currentUser} />} />
+          <Route path="/opportunities" element={<Opportunities currentUser={currentUser} />} />
           <Route path="/alerts" element={<Alerts currentUser={currentUser} />} />
           <Route path="/experiences" element={<Experiences currentUser={currentUser} />} />
           <Route path="/assistant" element={<Assistant currentUser={currentUser} />} />

@@ -76,6 +76,13 @@ export const login = (payload) => request("/auth/login", {
 
 export const getDashboard = () => request("/users/me/dashboard");
 
+export const getLocalitySummary = (locality) => request(`/users/locality-summary${locality ? `?locality=${encodeURIComponent(locality)}` : ""}`);
+
+export const searchPeople = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/users/search${query ? `?${query}` : ""}`);
+};
+
 export const markWorkerSafe = (workerId, rating) => request(`/workers/${workerId}/mark-safe`, {
   method: "POST",
   body: JSON.stringify({ rating })
@@ -158,3 +165,22 @@ export const shareLocation = (userId, payload) => request(`/users/${userId}/shar
 });
 
 export const getSharedLocations = () => request("/users/shared-locations");
+
+export const updateLocality = (userId, payload) => request(`/users/${userId}/locality`, {
+  method: "PATCH",
+  body: JSON.stringify(payload)
+});
+
+export const getOpportunities = (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return request(`/opportunities${query ? `?${query}` : ""}`);
+};
+
+export const createOpportunity = (payload) => request("/opportunities", {
+  method: "POST",
+  body: JSON.stringify(payload)
+});
+
+export const closeOpportunity = (opportunityId) => request(`/opportunities/${opportunityId}/close`, {
+  method: "PATCH"
+});

@@ -4,8 +4,12 @@ import mongoose from "mongoose";
 import path from "path";
 import { fileURLToPath } from "url";
 import Alert from "../src/models/Alert.js";
+import Checkin from "../src/models/Checkin.js";
 import Connection from "../src/models/Connection.js";
 import Experience from "../src/models/Experience.js";
+import Otp from "../src/models/Otp.js";
+import Opportunity from "../src/models/Opportunity.js";
+import SignupSession from "../src/models/SignupSession.js";
 import User from "../src/models/User.js";
 import WorkerRating from "../src/models/WorkerRating.js";
 
@@ -14,7 +18,6 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-const locality = "Ratnagiri";
 const password = "EmpowHer@123";
 
 const users = [
@@ -24,6 +27,9 @@ const users = [
         email: "aarohi.ratnagiri@example.com",
         role: "woman",
         gender: "female",
+        profession: "Teacher",
+        maritalStatus: "married",
+        locality: "Ratnagiri",
         latitude: 16.9902,
         longitude: 73.3120,
         identityVerified: true,
@@ -35,6 +41,9 @@ const users = [
         email: "meera.ratnagiri@example.com",
         role: "woman",
         gender: "female",
+        profession: "Homemaker",
+        maritalStatus: "married",
+        locality: "Ratnagiri",
         latitude: 16.9958,
         longitude: 73.3006,
         identityVerified: true,
@@ -46,8 +55,39 @@ const users = [
         email: "nisha.ratnagiri@example.com",
         role: "woman",
         gender: "female",
+        profession: "Student",
+        maritalStatus: "single",
+        locality: "Ratnagiri",
         latitude: 16.9829,
         longitude: 73.3147,
+        identityVerified: true,
+        identityVerifiedAt: new Date()
+    },
+    {
+        name: "Pooja Jadhav",
+        phone: "9000001004",
+        email: "pooja.chiplun@example.com",
+        role: "woman",
+        gender: "female",
+        profession: "Nurse",
+        maritalStatus: "single",
+        locality: "Chiplun",
+        latitude: 17.5334,
+        longitude: 73.5178,
+        identityVerified: true,
+        identityVerifiedAt: new Date()
+    },
+    {
+        name: "Sakshi Pawar",
+        phone: "9000001005",
+        email: "sakshi.chiplun@example.com",
+        role: "woman",
+        gender: "female",
+        profession: "Tailor",
+        maritalStatus: "prefer_not_to_say",
+        locality: "Chiplun",
+        latitude: 17.5291,
+        longitude: 73.5224,
         identityVerified: true,
         identityVerifiedAt: new Date()
     },
@@ -58,6 +98,8 @@ const users = [
         role: "worker",
         gender: "male",
         workType: "Auto driver",
+        profession: "Auto driver",
+        locality: "Ratnagiri",
         latitude: 16.9933,
         longitude: 73.3079,
         idVerified: true
@@ -69,6 +111,8 @@ const users = [
         role: "worker",
         gender: "male",
         workType: "Electrician",
+        profession: "Electrician",
+        locality: "Ratnagiri",
         latitude: 16.9874,
         longitude: 73.3017,
         idVerified: true
@@ -80,6 +124,8 @@ const users = [
         role: "worker",
         gender: "female",
         workType: "Tailor",
+        profession: "Tailor",
+        locality: "Ratnagiri",
         latitude: 16.9966,
         longitude: 73.3138,
         idVerified: true
@@ -91,8 +137,23 @@ const users = [
         role: "worker",
         gender: "male",
         workType: "Plumber",
+        profession: "Plumber",
+        locality: "Ratnagiri",
         latitude: 16.9841,
         longitude: 73.3091
+    },
+    {
+        name: "Vivek Gawde",
+        phone: "9000002005",
+        email: "vivek.chiplun@example.com",
+        role: "worker",
+        gender: "male",
+        workType: "Tutor",
+        profession: "Tutor",
+        locality: "Chiplun",
+        latitude: 17.5312,
+        longitude: 73.5199,
+        idVerified: true
     }
 ];
 
@@ -114,6 +175,12 @@ const experiences = [
         content: "A few lamps near the Mandavi beach approach were not working this week. Share live location or travel with someone after dark.",
         category: "warning",
         sharedBy: "nisha.ratnagiri@example.com"
+    },
+    {
+        title: "Busy clinic lane in Chiplun",
+        content: "The clinic lane had steady footfall around 7 PM and pharmacies stayed open, so it felt safer than the back road.",
+        category: "positive_experience",
+        sharedBy: "pooja.chiplun@example.com"
     }
 ];
 
@@ -131,6 +198,44 @@ const alerts = [
         latitude: 16.9913,
         longitude: 73.3068,
         raisedBy: "meera.ratnagiri@example.com"
+    },
+    {
+        type: "other",
+        description: "Road repair near the Chiplun market is narrowing the walking path this week.",
+        latitude: 17.5329,
+        longitude: 73.5195,
+        raisedBy: "pooja.chiplun@example.com"
+    }
+];
+
+const opportunities = [
+    {
+        title: "Babysitting needed for Saturday evening",
+        description: "Need a verified local helper for 3 hours while attending a community meeting. Experience with toddlers preferred.",
+        category: "babysitting",
+        pay: "Rs. 600 for 3 hours",
+        postedBy: "aarohi.ratnagiri@example.com"
+    },
+    {
+        title: "Math tutor for class 8",
+        description: "Looking for two evening sessions per week near Maruti Mandir. Patient teaching style preferred.",
+        category: "teaching",
+        pay: "Rs. 350 per session",
+        postedBy: "meera.ratnagiri@example.com"
+    },
+    {
+        title: "Pick up medicines from market",
+        description: "One-time errand from the main market pharmacy to Mandavi area before 6 PM.",
+        category: "errand",
+        pay: "Rs. 180",
+        postedBy: "nisha.ratnagiri@example.com"
+    },
+    {
+        title: "Blouse alteration help",
+        description: "Need simple alteration support this week near Chiplun market.",
+        category: "custom",
+        pay: "Rs. 250",
+        postedBy: "sakshi.chiplun@example.com"
     }
 ];
 
@@ -156,7 +261,6 @@ async function upsertUser(user, passwordHash) {
         {
             $set: {
                 ...user,
-                locality,
                 passwordHash,
                 safetyRating: user.safetyRating || 0,
                 ratingCount: user.ratingCount || 0
@@ -190,6 +294,17 @@ async function seed() {
     }
 
     await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
+    await Promise.all([
+        Alert.deleteMany({}),
+        Checkin.deleteMany({}),
+        Connection.deleteMany({}),
+        Experience.deleteMany({}),
+        Opportunity.deleteMany({}),
+        Otp.deleteMany({}),
+        SignupSession.deleteMany({}),
+        WorkerRating.deleteMany({}),
+        User.deleteMany({})
+    ]);
 
     const passwordHash = await bcrypt.hash(password, 12);
     const people = new Map();
@@ -225,12 +340,13 @@ async function seed() {
     }
 
     for(const item of experiences) {
+        const author = people.get(item.sharedBy);
         await Experience.findOneAndUpdate(
-            { locality, title: item.title },
+            { locality: author.locality, title: item.title },
             {
                 ...item,
-                locality,
-                sharedBy: people.get(item.sharedBy)._id,
+                locality: author.locality,
+                sharedBy: author._id,
                 likes: [people.get("aarohi.ratnagiri@example.com")._id, people.get("meera.ratnagiri@example.com")._id]
             },
             { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -238,19 +354,34 @@ async function seed() {
     }
 
     for(const item of alerts) {
+        const reporter = people.get(item.raisedBy);
         await Alert.findOneAndUpdate(
-            { locality, description: item.description },
+            { locality: reporter.locality, description: item.description },
             {
                 ...item,
-                locality,
-                raisedBy: people.get(item.raisedBy)._id,
+                locality: reporter.locality,
+                raisedBy: reporter._id,
                 status: "active"
             },
             { upsert: true, new: true, setDefaultsOnInsert: true }
         );
     }
 
-    console.log(`Seeded ${users.length} users, ${experiences.length} experiences, ${alerts.length} alerts for ${locality}.`);
+    for(const item of opportunities) {
+        const poster = people.get(item.postedBy);
+        await Opportunity.findOneAndUpdate(
+            { locality: poster.locality, title: item.title },
+            {
+                ...item,
+                locality: poster.locality,
+                postedBy: poster._id,
+                status: "open"
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+    }
+
+    console.log(`Seeded ${users.length} users, ${experiences.length} experiences, ${alerts.length} alerts, and ${opportunities.length} opportunities.`);
     console.log(`Demo password for all seeded accounts: ${password}`);
     console.log("Try signing in as aarohi.ratnagiri@example.com");
 }

@@ -1,6 +1,13 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import Connection from "../models/Connection.js";
+import Alert from "../models/Alert.js";
+import Experience from "../models/Experience.js";
+import Opportunity from "../models/Opportunity.js";
+
+const publicWomanFields = "name locality role profession maritalStatus identityVerified";
+const workerFields = "name locality role workType profession safetyRating ratingCount idVerified identityVerified";
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const getDashboard = async (req, res) => {
     try {
@@ -22,16 +29,18 @@ export const getDashboard = async (req, res) => {
             });
         }
 
-        const womenNearby = await User.find({
-            _id: { $ne: user._id },
-            role: "woman",
-            locality: user.locality
-        }).select("-__v");
+        const womenNearby = user.role === "woman"
+            ? await User.find({
+                _id: { $ne: user._id },
+                role: "woman",
+                locality: user.locality
+            }).select(publicWomanFields)
+            : [];
 
         const workersNearby = await User.find({
             role: "worker",
             locality: user.locality
-        }).select("-__v");
+        }).select(workerFields);
 
         return res.status(200).json({
             message:"Dashboard data fetched",
@@ -44,6 +53,133 @@ export const getDashboard = async (req, res) => {
         return res.status(500).json({
             message:"Dashboard data failed",
             success:false
+        });
+    }
+};
+
+export const updateLocality = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { locality, latitude = null, longitude = null } = req.body;
+
+        if(userId !== req.user.userId) {
+            return res.status(403).json({
+                message: "You can only update your own locality",
+                success: false
+            });
+        }
+
+        if(!locality) {
+            return res.status(400).json({
+                message: "Locality is required",
+                success: false
+            });
+        }
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            {
+                locality,
+                latitude,
+                longitude,
+                sharingWith: [],
+                sharingExpiresAt: null
+            },
+            { new: true }
+        );
+
+        return res.status(200).json({
+            message: `Locality changed to ${locality}`,
+            success: true,
+            user
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Could not update locality",
+            success: false
+        });
+    }
+};
+
+export const searchPeople = async (req, res) => {
+    try {
+        if(req.user.role !== "woman") {
+            return res.status(403).json({
+                message: "Workers cannot search or contact women on EmpowHer",
+                success: false,
+                people: []
+            });
+        }
+
+        const user = await User.findById(req.user.userId);
+        const search = (req.query.search || "").trim();
+        const locality = req.query.locality || user.locality;
+        const filter = {
+            _id: { $ne: user._id },
+            role: "woman",
+            locality
+        };
+
+        if(search) {
+            const pattern = new RegExp(escapeRegex(search), "i");
+            filter.$or = [
+                { name: pattern },
+                { profession: pattern },
+                { maritalStatus: pattern }
+            ];
+        }
+
+        const people = await User.find(filter).select(publicWomanFields).sort({ name: 1 });
+
+        return res.status(200).json({
+            message: "People fetched",
+            success: true,
+            people
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Could not search people",
+            success: false
+        });
+    }
+};
+
+export const getLocalitySummary = async (req, res) => {
+    try {
+        const currentUser = await User.findById(req.user.userId);
+        const locality = req.query.locality || currentUser.locality;
+        const [womenCount, workerCount, activeAlerts, experiences, opportunities, professions] = await Promise.all([
+            User.countDocuments({ role: "woman", locality }),
+            User.countDocuments({ role: "worker", locality }),
+            Alert.countDocuments({ locality, status: "active" }),
+            Experience.find({ locality }).sort({ createdAt: -1 }).limit(3).select("title category createdAt"),
+            Opportunity.find({ locality, status: "open" }).sort({ createdAt: -1 }).limit(4).select("title pay category createdAt"),
+            User.aggregate([
+                { $match: { role: "woman", locality, profession: { $nin: ["", null] } } },
+                { $group: { _id: "$profession", count: { $sum: 1 } } },
+                { $sort: { count: -1, _id: 1 } },
+                { $limit: 6 }
+            ])
+        ]);
+
+        return res.status(200).json({
+            message: "Locality summary fetched",
+            success: true,
+            summary: {
+                locality,
+                womenCount,
+                workerCount,
+                activeAlerts,
+                recentExperiences: experiences,
+                openOpportunities: opportunities,
+                professions: professions.map((item) => ({ title: item._id, count: item.count })),
+                canSearchWomen: req.user.role === "woman"
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Could not fetch locality summary",
+            success: false
         });
     }
 };
@@ -91,11 +227,31 @@ export const shareLocation = async (req, res) => {
             });
         }
 
+        if(req.user.role !== "woman" && shareWithUserIds.length) {
+            return res.status(403).json({
+                message: "Workers cannot share live location with women through EmpowHer",
+                success: false
+            });
+        }
+
+        const acceptedConnections = await Connection.find({
+            status: "accepted",
+            $or: [
+                { requester: req.user.userId },
+                { recipient: req.user.userId }
+            ]
+        });
+
+        const allowedIds = new Set(acceptedConnections.map((connection) => (
+            String(connection.requester) === req.user.userId ? String(connection.recipient) : String(connection.requester)
+        )));
+        const safeShareIds = shareWithUserIds.filter((id) => allowedIds.has(String(id)));
+
         const user = await User.findByIdAndUpdate(
             userId,
             {
-                sharingWith: shareWithUserIds,
-                sharingExpiresAt: shareWithUserIds.length
+                sharingWith: safeShareIds,
+                sharingExpiresAt: safeShareIds.length
                     ? new Date(Date.now() + Number(durationMinutes) * 60 * 1000)
                     : null
             },
@@ -103,7 +259,7 @@ export const shareLocation = async (req, res) => {
         );
 
         return res.status(200).json({
-            message: shareWithUserIds.length ? "Live location sharing is on" : "Live location sharing is off",
+            message: safeShareIds.length ? "Live location sharing is on" : "Live location sharing is off",
             success: true,
             user
         });
@@ -117,6 +273,14 @@ export const shareLocation = async (req, res) => {
 
 export const getSharedLocations = async (req, res) => {
     try {
+        if(req.user.role !== "woman") {
+            return res.status(200).json({
+                message: "Workers cannot access women's shared locations",
+                success: true,
+                locations: []
+            });
+        }
+
         const acceptedConnections = await Connection.find({
             status: "accepted",
             $or: [

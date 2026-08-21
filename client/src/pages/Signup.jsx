@@ -23,6 +23,8 @@ function Signup({ onLogin }) {
     role: "woman",
     gender: "female",
     workType: "",
+    profession: "",
+    maritalStatus: "",
     locality: "",
     latitude: "",
     longitude: ""
@@ -216,6 +218,24 @@ function Signup({ onLogin }) {
                   </Select>
                 </div>
                 {form.role === "worker" && <div><Label htmlFor="workType">Work type</Label><Input id="workType" value={form.workType} onChange={(event) => updateForm("workType", event.target.value)} placeholder="Driver, electrician, plumber" /></div>}
+                {form.role === "woman" && (
+                  <div className="split-fields">
+                    <div><Label htmlFor="profession">Profession</Label><Input id="profession" value={form.profession} onChange={(event) => updateForm("profession", event.target.value)} placeholder="Teacher, student, homemaker" required /></div>
+                    <div>
+                      <Label>Marital status</Label>
+                      <Select value={form.maritalStatus} onValueChange={(value) => updateForm("maritalStatus", value)}>
+                        <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="single">Single</SelectItem>
+                          <SelectItem value="married">Married</SelectItem>
+                          <SelectItem value="widowed">Widowed</SelectItem>
+                          <SelectItem value="separated">Separated</SelectItem>
+                          <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="locality">Locality</Label>
                   <div className="locality-picker">
