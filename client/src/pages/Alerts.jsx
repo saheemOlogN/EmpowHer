@@ -22,7 +22,16 @@ function Alerts({ currentUser }) {
 
   useEffect(() => {
     load();
-  }, []);
+    const refreshId = window.setInterval(load, 8000);
+    const handleLiveUpdate = () => load();
+
+    window.addEventListener("empowher:live-update", handleLiveUpdate);
+
+    return () => {
+      window.clearInterval(refreshId);
+      window.removeEventListener("empowher:live-update", handleLiveUpdate);
+    };
+  }, [currentUser.locality]);
 
   async function submit(event) {
     event.preventDefault();
@@ -33,6 +42,7 @@ function Alerts({ currentUser }) {
       setForm({ type: "unsafe_area", description: "" });
       setOpen(false);
       await load();
+      window.dispatchEvent(new CustomEvent("empowher:live-update", { detail: { source: "alert-created" } }));
     }
   }
 
@@ -40,6 +50,9 @@ function Alerts({ currentUser }) {
     const data = await resolveAlert(alertId);
     setMessage(data.message);
     await load();
+    if(data.success) {
+      window.dispatchEvent(new CustomEvent("empowher:live-update", { detail: { source: "alert-resolved" } }));
+    }
   }
 
   return (

@@ -8,7 +8,7 @@ EmpowHer is a simple MERN app for a hyperlocal support network for women and tru
 - React client inside the `client` folder
 - Tailwind CSS setup
 - Login as a woman user or as a worker
-- Browser location detection and locality autocomplete
+- PIN-code based locality selection with Indian post office results
 - Same-locality dashboard connections
 - Women can mark local workers safe and increase their safety rating
 - Safety Pin option shows a "to be implemented soon" message
@@ -48,11 +48,7 @@ Server env is already placed at `server/.env`.
 
 Client env is already placed at `client/.env`.
 
-Add a Mapbox token in `client/.env` to enable locality autofill:
-
-```bash
-VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_token
-```
+Locality selection uses the free Postal PIN Code API from the client, so no map API key is needed for signup or locality changes.
 
 The app uses MongoDB from `server/.env`:
 

@@ -18,241 +18,207 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-const password = "EmpowHer@123";
+const password = "123";
+
+const locations = {
+    pin415616: {
+        pincode: "415616",
+        area: "Ratnagiri",
+        district: "Ratnagiri",
+        state: "Maharashtra",
+        center: { latitude: 16.9902, longitude: 73.3120 }
+    },
+    pin415605: {
+        pincode: "415605",
+        area: "Chiplun",
+        district: "Ratnagiri",
+        state: "Maharashtra",
+        center: { latitude: 17.5334, longitude: 73.5178 }
+    }
+};
+
+const formatLocality = (location) => `${location.area}, ${location.district}, ${location.state} - ${location.pincode}`;
+
+function personLocation(location, latitudeOffset = 0, longitudeOffset = 0) {
+    return {
+        locality: formatLocality(location),
+        location: {
+            pincode: location.pincode,
+            area: location.area,
+            district: location.district,
+            state: location.state
+        },
+        latitude: Number((location.center.latitude + latitudeOffset).toFixed(6)),
+        longitude: Number((location.center.longitude + longitudeOffset).toFixed(6))
+    };
+}
+
+const women415616 = [
+    ["Meera Kadam", "9000001001", "meera@gmail.com", "Teacher", "married", 0.0011, 0.0014],
+    ["Seher Shaikh", "9000001002", "seher@gmail.com", "Student", "single", -0.0018, 0.0021],
+    ["Madiha Khan", "9000001003", "madiha@gmail.com", "Nurse", "single", 0.0022, -0.0011],
+    ["Samiya Ansari", "9000001004", "samiya@gmail.com", "Housewife", "married", -0.0025, -0.0018],
+    ["Ayesha Parkar", "9000001005", "ayesha@gmail.com", "Tailor", "prefer_not_to_say", 0.0031, 0.0007],
+    ["Nisha Patil", "9000001006", "nisha@gmail.com", "Homemaker", "married", -0.0032, 0.0015]
+].map(([name, phone, email, profession, maritalStatus, latOffset, lngOffset]) => ({
+    name,
+    phone,
+    email,
+    role: "woman",
+    gender: "female",
+    profession,
+    maritalStatus,
+    identityVerified: true,
+    identityVerifiedAt: new Date(),
+    ...personLocation(locations.pin415616, latOffset, lngOffset)
+}));
+
+const women415605 = [
+    ["Zoya Shaikh", "9000001101", "zoya@gmail.com", "Teacher", "single", 0.0012, -0.0016],
+    ["Rukhsar Mulla", "9000001102", "rukhsar@gmail.com", "Student", "single", -0.0014, 0.0013],
+    ["Fatima Khan", "9000001103", "fatima@gmail.com", "Housewife", "married", 0.0026, 0.0009],
+    ["Sana Pawar", "9000001104", "sana@gmail.com", "Nurse", "married", -0.0021, -0.0012]
+].map(([name, phone, email, profession, maritalStatus, latOffset, lngOffset]) => ({
+    name,
+    phone,
+    email,
+    role: "woman",
+    gender: "female",
+    profession,
+    maritalStatus,
+    identityVerified: true,
+    identityVerifiedAt: new Date(),
+    ...personLocation(locations.pin415605, latOffset, lngOffset)
+}));
+
+const workers415616 = [
+    ["Ramesh Plumber", "9000002001", "plumber@gmail.com", "Plumber", "male", 0.0008, -0.0024],
+    ["Prakash Electrician", "9000002002", "electrician@gmail.com", "Electrician", "male", -0.0024, 0.0006],
+    ["Farida Tailor", "9000002003", "tailor@gmail.com", "Tailor", "female", 0.0028, 0.0021],
+    ["Sameer Driver", "9000002004", "driver@gmail.com", "Auto driver", "male", -0.0011, -0.0027]
+].map(([name, phone, email, workType, gender, latOffset, lngOffset]) => ({
+    name,
+    phone,
+    email,
+    role: "worker",
+    gender,
+    workType,
+    profession: workType,
+    idVerified: true,
+    ...personLocation(locations.pin415616, latOffset, lngOffset)
+}));
+
+const workers415605 = [
+    ["Akbar Plumber", "9000002101", "plumber415605@gmail.com", "Plumber", "male", 0.0011, 0.0020],
+    ["Salma Tailor", "9000002102", "tailor415605@gmail.com", "Tailor", "female", -0.0016, -0.0011],
+    ["Vivek Tutor", "9000002103", "tutor415605@gmail.com", "Tutor", "male", 0.0022, -0.0024]
+].map(([name, phone, email, workType, gender, latOffset, lngOffset]) => ({
+    name,
+    phone,
+    email,
+    role: "worker",
+    gender,
+    workType,
+    profession: workType,
+    idVerified: true,
+    ...personLocation(locations.pin415605, latOffset, lngOffset)
+}));
 
 const users = [
-    {
-        name: "Aarohi Sawant",
-        phone: "9000001001",
-        email: "aarohi.ratnagiri@example.com",
-        role: "woman",
-        gender: "female",
-        profession: "Teacher",
-        maritalStatus: "married",
-        locality: "Ratnagiri",
-        latitude: 16.9902,
-        longitude: 73.3120,
-        identityVerified: true,
-        identityVerifiedAt: new Date()
-    },
-    {
-        name: "Meera Kadam",
-        phone: "9000001002",
-        email: "meera.ratnagiri@example.com",
-        role: "woman",
-        gender: "female",
-        profession: "Homemaker",
-        maritalStatus: "married",
-        locality: "Ratnagiri",
-        latitude: 16.9958,
-        longitude: 73.3006,
-        identityVerified: true,
-        identityVerifiedAt: new Date()
-    },
-    {
-        name: "Nisha Patil",
-        phone: "9000001003",
-        email: "nisha.ratnagiri@example.com",
-        role: "woman",
-        gender: "female",
-        profession: "Student",
-        maritalStatus: "single",
-        locality: "Ratnagiri",
-        latitude: 16.9829,
-        longitude: 73.3147,
-        identityVerified: true,
-        identityVerifiedAt: new Date()
-    },
-    {
-        name: "Pooja Jadhav",
-        phone: "9000001004",
-        email: "pooja.chiplun@example.com",
-        role: "woman",
-        gender: "female",
-        profession: "Nurse",
-        maritalStatus: "single",
-        locality: "Chiplun",
-        latitude: 17.5334,
-        longitude: 73.5178,
-        identityVerified: true,
-        identityVerifiedAt: new Date()
-    },
-    {
-        name: "Sakshi Pawar",
-        phone: "9000001005",
-        email: "sakshi.chiplun@example.com",
-        role: "woman",
-        gender: "female",
-        profession: "Tailor",
-        maritalStatus: "prefer_not_to_say",
-        locality: "Chiplun",
-        latitude: 17.5291,
-        longitude: 73.5224,
-        identityVerified: true,
-        identityVerifiedAt: new Date()
-    },
-    {
-        name: "Sanjay Shinde",
-        phone: "9000002001",
-        email: "sanjay.driver@example.com",
-        role: "worker",
-        gender: "male",
-        workType: "Auto driver",
-        profession: "Auto driver",
-        locality: "Ratnagiri",
-        latitude: 16.9933,
-        longitude: 73.3079,
-        idVerified: true
-    },
-    {
-        name: "Prakash More",
-        phone: "9000002002",
-        email: "prakash.electrician@example.com",
-        role: "worker",
-        gender: "male",
-        workType: "Electrician",
-        profession: "Electrician",
-        locality: "Ratnagiri",
-        latitude: 16.9874,
-        longitude: 73.3017,
-        idVerified: true
-    },
-    {
-        name: "Farida Shaikh",
-        phone: "9000002003",
-        email: "farida.tailor@example.com",
-        role: "worker",
-        gender: "female",
-        workType: "Tailor",
-        profession: "Tailor",
-        locality: "Ratnagiri",
-        latitude: 16.9966,
-        longitude: 73.3138,
-        idVerified: true
-    },
-    {
-        name: "Ramesh Naik",
-        phone: "9000002004",
-        email: "ramesh.plumber@example.com",
-        role: "worker",
-        gender: "male",
-        workType: "Plumber",
-        profession: "Plumber",
-        locality: "Ratnagiri",
-        latitude: 16.9841,
-        longitude: 73.3091
-    },
-    {
-        name: "Vivek Gawde",
-        phone: "9000002005",
-        email: "vivek.chiplun@example.com",
-        role: "worker",
-        gender: "male",
-        workType: "Tutor",
-        profession: "Tutor",
-        locality: "Chiplun",
-        latitude: 17.5312,
-        longitude: 73.5199,
-        idVerified: true
-    }
+    ...women415616,
+    ...women415605,
+    ...workers415616,
+    ...workers415605
 ];
 
 const experiences = [
     {
-        title: "Well-lit route near Maruti Mandir",
-        content: "The Maruti Mandir main stretch stayed busy until late evening. Shops were open and two trusted autos waited near the junction.",
+        title: "Market road felt safer after sunset",
+        content: "The main market stretch stayed busy and well lit around 8 PM.",
         category: "positive_experience",
-        sharedBy: "aarohi.ratnagiri@example.com"
+        sharedBy: "meera@gmail.com"
     },
     {
-        title: "Prefer the market road after 8 PM",
-        content: "For walks from ST Stand toward the bazaar, the market road has more people and better lighting than the quieter inner lane.",
+        title: "Avoid the quiet lane near the beach approach",
+        content: "The lane gets isolated after shops close. Share live location if you need to pass through.",
         category: "safety_tip",
-        sharedBy: "meera.ratnagiri@example.com"
+        sharedBy: "seher@gmail.com"
     },
     {
-        title: "Patchy lighting near beach approach",
-        content: "A few lamps near the Mandavi beach approach were not working this week. Share live location or travel with someone after dark.",
-        category: "warning",
-        sharedBy: "nisha.ratnagiri@example.com"
-    },
-    {
-        title: "Busy clinic lane in Chiplun",
-        content: "The clinic lane had steady footfall around 7 PM and pharmacies stayed open, so it felt safer than the back road.",
+        title: "Chiplun bus stand was crowded but safe",
+        content: "Several families and vendors were around the bus stand in the evening.",
         category: "positive_experience",
-        sharedBy: "pooja.chiplun@example.com"
+        sharedBy: "zoya@gmail.com"
     }
 ];
 
 const alerts = [
     {
         type: "unsafe_area",
-        description: "Streetlights are out near the Mandavi beach approach after the last row of shops.",
-        latitude: 16.9845,
-        longitude: 73.2878,
-        raisedBy: "aarohi.ratnagiri@example.com"
+        description: "Streetlights are out near the inner road after the market closes.",
+        latitude: 16.9886,
+        longitude: 73.3099,
+        raisedBy: "madiha@gmail.com"
     },
     {
         type: "suspicious_activity",
-        description: "Repeated loitering reported near the quieter lane behind the bus stand in the evening.",
-        latitude: 16.9913,
-        longitude: 73.3068,
-        raisedBy: "meera.ratnagiri@example.com"
+        description: "Repeated loitering reported near a quiet stop after 9 PM.",
+        latitude: 16.9922,
+        longitude: 73.3141,
+        raisedBy: "samiya@gmail.com"
     },
     {
         type: "other",
-        description: "Road repair near the Chiplun market is narrowing the walking path this week.",
+        description: "Road repair near Chiplun market is narrowing the walking path.",
         latitude: 17.5329,
         longitude: 73.5195,
-        raisedBy: "pooja.chiplun@example.com"
+        raisedBy: "fatima@gmail.com"
     }
 ];
 
 const opportunities = [
     {
-        title: "Babysitting needed for Saturday evening",
-        description: "Need a verified local helper for 3 hours while attending a community meeting. Experience with toddlers preferred.",
-        category: "babysitting",
-        pay: "Rs. 600 for 3 hours",
-        postedBy: "aarohi.ratnagiri@example.com"
-    },
-    {
         title: "Math tutor for class 8",
-        description: "Looking for two evening sessions per week near Maruti Mandir. Patient teaching style preferred.",
+        description: "Need two evening sessions per week near Ratnagiri.",
         category: "teaching",
         pay: "Rs. 350 per session",
-        postedBy: "meera.ratnagiri@example.com"
-    },
-    {
-        title: "Pick up medicines from market",
-        description: "One-time errand from the main market pharmacy to Mandavi area before 6 PM.",
-        category: "errand",
-        pay: "Rs. 180",
-        postedBy: "nisha.ratnagiri@example.com"
+        postedBy: "meera@gmail.com"
     },
     {
         title: "Blouse alteration help",
-        description: "Need simple alteration support this week near Chiplun market.",
+        description: "Simple alteration work needed this week.",
         category: "custom",
         pay: "Rs. 250",
-        postedBy: "sakshi.chiplun@example.com"
+        postedBy: "ayesha@gmail.com"
+    },
+    {
+        title: "Babysitting for Saturday evening",
+        description: "Need a trusted local helper for three hours.",
+        category: "babysitting",
+        pay: "Rs. 600",
+        postedBy: "sana@gmail.com"
     }
 ];
 
-const ratingPlan = [
-    ["sanjay.driver@example.com", "aarohi.ratnagiri@example.com", 5],
-    ["sanjay.driver@example.com", "meera.ratnagiri@example.com", 5],
-    ["sanjay.driver@example.com", "nisha.ratnagiri@example.com", 4],
-    ["prakash.electrician@example.com", "aarohi.ratnagiri@example.com", 5],
-    ["prakash.electrician@example.com", "meera.ratnagiri@example.com", 4],
-    ["farida.tailor@example.com", "aarohi.ratnagiri@example.com", 5],
-    ["farida.tailor@example.com", "nisha.ratnagiri@example.com", 5],
-    ["ramesh.plumber@example.com", "meera.ratnagiri@example.com", 4]
+const connectionPlan = [
+    ["meera@gmail.com", "seher@gmail.com"],
+    ["meera@gmail.com", "madiha@gmail.com"],
+    ["seher@gmail.com", "samiya@gmail.com"],
+    ["zoya@gmail.com", "rukhsar@gmail.com"]
 ];
 
-const connectionPlan = [
-    ["aarohi.ratnagiri@example.com", "meera.ratnagiri@example.com"],
-    ["aarohi.ratnagiri@example.com", "nisha.ratnagiri@example.com"]
+const ratingPlan = [
+    ["plumber@gmail.com", "meera@gmail.com", 5],
+    ["plumber@gmail.com", "seher@gmail.com", 4],
+    ["plumber@gmail.com", "madiha@gmail.com", 5],
+    ["electrician@gmail.com", "meera@gmail.com", 4],
+    ["electrician@gmail.com", "samiya@gmail.com", 5],
+    ["tailor@gmail.com", "ayesha@gmail.com", 5],
+    ["tailor@gmail.com", "nisha@gmail.com", 5],
+    ["driver@gmail.com", "meera@gmail.com", 4],
+    ["plumber415605@gmail.com", "zoya@gmail.com", 5],
+    ["tailor415605@gmail.com", "fatima@gmail.com", 4],
+    ["tutor415605@gmail.com", "rukhsar@gmail.com", 5]
 ];
 
 async function upsertUser(user, passwordHash) {
@@ -288,12 +254,7 @@ async function recomputeWorkerRating(workerId) {
     });
 }
 
-async function seed() {
-    if(!process.env.MONGODB_URI) {
-        throw new Error("MONGODB_URI is missing in server/.env");
-    }
-
-    await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
+async function wipeDatabase() {
     await Promise.all([
         Alert.deleteMany({}),
         Checkin.deleteMany({}),
@@ -305,6 +266,15 @@ async function seed() {
         WorkerRating.deleteMany({}),
         User.deleteMany({})
     ]);
+}
+
+async function seed() {
+    if(!process.env.MONGODB_URI) {
+        throw new Error("MONGODB_URI is missing in server/.env");
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
+    await wipeDatabase();
 
     const passwordHash = await bcrypt.hash(password, 12);
     const people = new Map();
@@ -322,8 +292,13 @@ async function seed() {
         );
     }
 
-    await User.findByIdAndUpdate(people.get("meera.ratnagiri@example.com")._id, {
-        sharingWith: [people.get("aarohi.ratnagiri@example.com")._id],
+    await User.findByIdAndUpdate(people.get("seher@gmail.com")._id, {
+        sharingWith: [people.get("meera@gmail.com")._id, people.get("madiha@gmail.com")._id],
+        sharingExpiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
+    });
+
+    await User.findByIdAndUpdate(people.get("zoya@gmail.com")._id, {
+        sharingWith: [people.get("rukhsar@gmail.com")._id],
         sharingExpiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
     });
 
@@ -341,54 +316,45 @@ async function seed() {
 
     for(const item of experiences) {
         const author = people.get(item.sharedBy);
-        await Experience.findOneAndUpdate(
-            { locality: author.locality, title: item.title },
-            {
-                ...item,
-                locality: author.locality,
-                sharedBy: author._id,
-                likes: [people.get("aarohi.ratnagiri@example.com")._id, people.get("meera.ratnagiri@example.com")._id]
-            },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
+        await Experience.create({
+            ...item,
+            locality: author.locality,
+            sharedBy: author._id,
+            likes: [people.get("meera@gmail.com")._id, people.get("seher@gmail.com")._id].filter(Boolean)
+        });
     }
 
     for(const item of alerts) {
         const reporter = people.get(item.raisedBy);
-        await Alert.findOneAndUpdate(
-            { locality: reporter.locality, description: item.description },
-            {
-                ...item,
-                locality: reporter.locality,
-                raisedBy: reporter._id,
-                status: "active"
-            },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
+        await Alert.create({
+            ...item,
+            locality: reporter.locality,
+            raisedBy: reporter._id,
+            status: "active"
+        });
     }
 
     for(const item of opportunities) {
         const poster = people.get(item.postedBy);
-        await Opportunity.findOneAndUpdate(
-            { locality: poster.locality, title: item.title },
-            {
-                ...item,
-                locality: poster.locality,
-                postedBy: poster._id,
-                status: "open"
-            },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
+        await Opportunity.create({
+            ...item,
+            locality: poster.locality,
+            postedBy: poster._id,
+            status: "open"
+        });
     }
 
-    console.log(`Seeded ${users.length} users, ${experiences.length} experiences, ${alerts.length} alerts, and ${opportunities.length} opportunities.`);
-    console.log(`Demo password for all seeded accounts: ${password}`);
-    console.log("Try signing in as aarohi.ratnagiri@example.com");
+    console.log("Database wiped and reseeded.");
+    console.log(`Seeded ${users.length} users across PIN 415616 and 415605.`);
+    console.log(`Seeded ${alerts.length} alerts, ${experiences.length} experiences, and ${opportunities.length} opportunities.`);
+    console.log(`Demo password for every seeded account: ${password}`);
+    console.log("Primary login: meera@gmail.com / 123");
+    console.log("Change-locality test login: zoya@gmail.com / 123");
 }
 
 seed()
     .catch((error) => {
-        console.error("Ratnagiri seed failed:", error.message);
+        console.error("Seed failed:", error.message);
         process.exitCode = 1;
     })
     .finally(async () => {

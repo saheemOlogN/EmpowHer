@@ -8,6 +8,17 @@ import Opportunity from "../models/Opportunity.js";
 const publicWomanFields = "name locality role profession maritalStatus identityVerified";
 const workerFields = "name locality role workType profession safetyRating ratingCount idVerified identityVerified";
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const normalizeLocation = (location = {}) => ({
+    pincode: String(location.pincode || "").trim(),
+    area: String(location.area || "").trim(),
+    district: String(location.district || "").trim(),
+    state: String(location.state || "").trim()
+});
+const formatLocality = (location = {}) => {
+    const normalized = normalizeLocation(location);
+    const label = [normalized.area, normalized.district, normalized.state].filter(Boolean).join(", ");
+    return label && normalized.pincode ? `${label} - ${normalized.pincode}` : "";
+};
 
 export const getDashboard = async (req, res) => {
     try {
@@ -60,7 +71,7 @@ export const getDashboard = async (req, res) => {
 export const updateLocality = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { locality, latitude = null, longitude = null } = req.body;
+        const { locality, location, latitude = null, longitude = null } = req.body;
 
         if(userId !== req.user.userId) {
             return res.status(403).json({
@@ -69,9 +80,19 @@ export const updateLocality = async (req, res) => {
             });
         }
 
-        if(!locality) {
+        const normalizedLocation = normalizeLocation(location);
+        const normalizedLocality = formatLocality(normalizedLocation) || locality;
+
+        if(!normalizedLocality) {
             return res.status(400).json({
                 message: "Locality is required",
+                success: false
+            });
+        }
+
+        if(!/^\d{6}$/.test(normalizedLocation.pincode) || !normalizedLocation.area || !normalizedLocation.district || !normalizedLocation.state) {
+            return res.status(400).json({
+                message: "Confirm your locality from a valid 6 digit PIN code",
                 success: false
             });
         }
@@ -79,7 +100,8 @@ export const updateLocality = async (req, res) => {
         const user = await User.findByIdAndUpdate(
             userId,
             {
-                locality,
+                locality: normalizedLocality,
+                location: normalizedLocation,
                 latitude,
                 longitude,
                 sharingWith: [],
@@ -89,7 +111,7 @@ export const updateLocality = async (req, res) => {
         );
 
         return res.status(200).json({
-            message: `Locality changed to ${locality}`,
+            message: `Locality changed to ${normalizedLocality}`,
             success: true,
             user
         });

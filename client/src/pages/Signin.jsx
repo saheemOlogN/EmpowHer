@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Input } from "../components/ui/input.jsx";
 import { Label } from "../components/ui/label.jsx";
 import { login } from "../services/api.js";
+import logoUrl from "../assets/empowher-logo.png";
 
 function Signin({ onLogin }) {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -30,7 +31,13 @@ function Signin({ onLogin }) {
     <main className="auth-simple-screen">
       <Card className="auth-simple-card">
         <CardHeader>
-          <p className="wordmark">EmpowHer</p>
+          <div className="auth-brand-lockup compact">
+            <img src={logoUrl} alt="EmpowHer" />
+            <div>
+              <p className="wordmark">EmpowHer</p>
+              <span>Changing Locality to a Community</span>
+            </div>
+          </div>
           <CardTitle>Sign in</CardTitle>
           <CardDescription>Use your email and password to return to your dashboard.</CardDescription>
         </CardHeader>

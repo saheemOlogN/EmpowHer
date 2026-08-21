@@ -1,61 +1,78 @@
-const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-const mapboxEndpoint = "https://api.mapbox.com/geocoding/v5/mapbox.places";
+const postalPincodeEndpoint = "https://api.postalpincode.in/pincode";
 
-function buildMapboxParams(params = {}) {
-  const searchParams = new URLSearchParams({
-    country: "IN",
-    types: "place,locality,neighborhood",
-    access_token: mapboxToken,
-    ...params
-  });
-
-  return searchParams.toString();
+export function formatLocationLabel(location = {}) {
+  return [location.area, location.district, location.state].filter(Boolean).join(", ") + (location.pincode ? ` - ${location.pincode}` : "");
 }
 
-function formatMapboxFeature(feature) {
-  const coordinates = feature.center || feature.geometry?.coordinates || [];
-  const placeName = feature.place_name || feature.text || "Selected locality";
+function cleanPincode(value = "") {
+  return String(value).replace(/\D/g, "").slice(0, 6);
+}
+
+function formatPostOffice(postOffice = {}, index = 0) {
+  const location = {
+    pincode: cleanPincode(postOffice.Pincode),
+    area: postOffice.Name || "",
+    district: postOffice.District || "",
+    state: postOffice.State || ""
+  };
+  const locality = formatLocationLabel(location);
 
   return {
-    id: feature.id || placeName,
-    name: placeName,
-    placeFormatted: "",
-    locality: placeName,
-    latitude: coordinates[1] || "",
-    longitude: coordinates[0] || ""
+    id: `${location.pincode}-${location.area}-${index}`,
+    name: location.area || "Selected locality",
+    placeFormatted: [location.district, location.state, location.pincode].filter(Boolean).join(", "),
+    locality,
+    location,
+    latitude: null,
+    longitude: null
   };
 }
 
-function hasCoordinates({ latitude, longitude } = {}) {
-  return latitude !== undefined && latitude !== null && latitude !== "" && longitude !== undefined && longitude !== null && longitude !== "";
-}
+export const getLocationSuggestions = async (pincode) => {
+  const normalizedPincode = cleanPincode(pincode);
 
-function buildProximity({ latitude, longitude } = {}) {
-  return hasCoordinates({ latitude, longitude }) ? `${longitude},${latitude}` : undefined;
-}
-
-export const getLocationSuggestions = async (query, coordinates = {}) => {
-  if(!query || query.length < 3 || !mapboxToken) {
-    return [];
+  if(normalizedPincode.length !== 6) {
+    return {
+      message: "Enter a 6 digit PIN code",
+      success: false,
+      suggestions: []
+    };
   }
 
   try {
-    const params = {
-      autocomplete: "true",
-      limit: "5"
-    };
-    const proximity = buildProximity(coordinates);
+    const response = await fetch(`${postalPincodeEndpoint}/${normalizedPincode}`);
 
-    if(proximity) {
-      params.proximity = proximity;
+    if(!response.ok) {
+      return {
+        message: "Could not check that PIN code right now",
+        success: false,
+        suggestions: []
+      };
     }
 
-    const response = await fetch(`${mapboxEndpoint}/${encodeURIComponent(query)}.json?${buildMapboxParams(params)}`);
     const data = await response.json();
+    const result = Array.isArray(data) ? data[0] : null;
+    const postOffices = Array.isArray(result?.PostOffice) ? result.PostOffice : [];
 
-    return (data.features || []).map(formatMapboxFeature);
+    if(result?.Status !== "Success" || postOffices.length === 0) {
+      return {
+        message: "No locality found for that PIN code",
+        success: false,
+        suggestions: []
+      };
+    }
+
+    return {
+      message: postOffices.length > 1 ? "Choose your locality" : "Locality found",
+      success: true,
+      suggestions: postOffices.map(formatPostOffice)
+    };
   } catch (error) {
-    return [];
+    return {
+      message: "Network error while checking PIN code",
+      success: false,
+      suggestions: []
+    };
   }
 };
 
@@ -68,62 +85,11 @@ export const getSelectedLocation = async (suggestion) => {
   }
 
   return {
-    message: "Location selected",
+    message: "Locality confirmed",
     success: true,
-    locality: suggestion.locality || suggestion.name,
-    latitude: suggestion.latitude,
-    longitude: suggestion.longitude
+    locality: suggestion.locality,
+    location: suggestion.location,
+    latitude: null,
+    longitude: null
   };
-};
-
-export const getCurrentLocality = async () => {
-  if(!navigator.geolocation) {
-    return {
-      message: "Location is not supported in this browser",
-      success: false
-    };
-  }
-
-  if(!mapboxToken) {
-    return {
-      message: "Mapbox token is missing. Please type locality manually.",
-      success: false
-    };
-  }
-
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const latitude = position.coords.latitude;
-          const longitude = position.coords.longitude;
-          const response = await fetch(
-            `${mapboxEndpoint}/${longitude},${latitude}.json?${buildMapboxParams()}`
-          );
-          const data = await response.json();
-          const feature = (data.features || [])[0];
-          const locality = feature ? formatMapboxFeature(feature).locality : "";
-
-          resolve({
-            message: "Location detected",
-            success: true,
-            locality: locality || "Detected location",
-            latitude,
-            longitude
-          });
-        } catch (error) {
-          resolve({
-            message: "Could not find locality. Please type it manually.",
-            success: false
-          });
-        }
-      },
-      () => {
-        resolve({
-          message: "Location permission denied. Please type locality manually.",
-          success: false
-        });
-      }
-    );
-  });
 };

@@ -7,32 +7,100 @@ import {
   LogOut,
   MapPin,
   Radio,
-  ShieldCheck,
   UsersRound,
   Wifi
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { getConnections, shareLocation, updateLocation } from "../services/api.js";
+import { toast } from "sonner";
+import {
+  getAlerts,
+  getConnections,
+  getExperiences,
+  getOpportunities,
+  getSharedLocations,
+  shareLocation,
+  updateLocation
+} from "../services/api.js";
 import { AssistantBubble } from "./AssistantChat.jsx";
+import logoUrl from "../assets/empowher-logo.png";
 
-const navItems = [
+const generalNavItems = [
   { to: "/", label: "Dashboard", icon: Home },
   { to: "/connections", label: "Connections", icon: UsersRound },
   { to: "/opportunities", label: "Opportunities", icon: ListChecks },
-  { to: "/alerts", label: "Alerts", icon: Bell },
   { to: "/experiences", label: "Experiences", icon: HeartHandshake },
-  { to: "/assistant", label: "Assistant", icon: Bot },
+  { to: "/assistant", label: "Assistant", icon: Bot }
+];
+
+const safetyNavItems = [
+  { to: "/alerts", label: "Alerts", icon: Bell },
   { to: "/safety-pin", label: "Safety Pin", icon: Wifi }
 ];
+
+function getWelcome(user) {
+  return `Hello, ${user.name}`;
+}
+
+function formatAlertType(type) {
+  return type.replaceAll("_", " ");
+}
+
+function buildNotifications({ alerts = [], experiences = [], opportunities = [], connections = [], locations = [] }) {
+  return [
+    ...alerts.slice(0, 4).map((alert) => ({
+      id: `alert-${alert._id}-${alert.status}`,
+      tone: alert.status === "active" ? "danger" : "neutral",
+      title: `${formatAlertType(alert.type)} alert`,
+      detail: alert.description,
+      time: alert.createdAt
+    })),
+    ...locations.slice(0, 3).map((person) => ({
+      id: `location-${person._id}-${person.sharingExpiresAt}`,
+      tone: "success",
+      title: `${person.name} is sharing live location`,
+      detail: person.locality,
+      time: person.sharingExpiresAt
+    })),
+    ...connections.slice(0, 3).map((connection) => ({
+      id: `connection-${connection._id}`,
+      tone: "brand",
+      title: "Connection request",
+      detail: `${connection.requester.name} wants to connect`,
+      time: connection.createdAt
+    })),
+    ...opportunities.slice(0, 3).map((item) => ({
+      id: `opportunity-${item._id}`,
+      tone: "warning",
+      title: "New opportunity",
+      detail: item.title,
+      time: item.createdAt
+    })),
+    ...experiences.slice(0, 3).map((item) => ({
+      id: `experience-${item._id}`,
+      tone: "neutral",
+      title: "Community update",
+      detail: item.title,
+      time: item.createdAt
+    }))
+  ]
+    .filter((item) => item.id)
+    .sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0))
+    .slice(0, 8);
+}
 
 function Shell({ currentUser, onLogout }) {
   const navigate = useNavigate();
   const watchRef = useRef(null);
   const intervalRef = useRef(null);
   const lastPositionRef = useRef(null);
+  const notificationSignatureRef = useRef("");
+  const notificationReadyRef = useRef(false);
   const [sharing, setSharing] = useState(false);
   const [status, setStatus] = useState("");
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   async function connectionIds() {
     const data = await getConnections();
@@ -97,27 +165,93 @@ function Shell({ currentUser, onLogout }) {
     window.clearInterval(intervalRef.current);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function pollNotifications() {
+      const [alertData, experienceData, opportunityData, connectionData, locationData] = await Promise.all([
+        getAlerts(currentUser.locality),
+        getExperiences({ locality: currentUser.locality }),
+        getOpportunities({ locality: currentUser.locality }),
+        getConnections(),
+        getSharedLocations()
+      ]);
+
+      if(cancelled) return;
+
+      const nextNotifications = buildNotifications({
+        alerts: alertData.success ? alertData.alerts : [],
+        experiences: experienceData.success ? experienceData.experiences : [],
+        opportunities: opportunityData.success ? opportunityData.opportunities : [],
+        connections: connectionData.success ? connectionData.pendingIncoming : [],
+        locations: locationData.success ? locationData.locations : []
+      });
+      const nextSignature = nextNotifications.map((item) => item.id).join("|");
+      const previousSignature = notificationSignatureRef.current;
+
+      setNotifications(nextNotifications);
+
+      if(notificationReadyRef.current && nextSignature && nextSignature !== previousSignature) {
+        const newest = nextNotifications.find((item) => !previousSignature.includes(item.id));
+        setUnreadCount((count) => count + 1);
+        window.dispatchEvent(new CustomEvent("empowher:live-update", { detail: { source: "notifications" } }));
+        if(newest) {
+          toast(newest.title, { description: newest.detail });
+        }
+      }
+
+      notificationSignatureRef.current = nextSignature;
+      notificationReadyRef.current = true;
+    }
+
+    pollNotifications();
+    const pollId = window.setInterval(pollNotifications, 8000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollId);
+    };
+  }, [currentUser.locality]);
+
+  function toggleNotifications() {
+    setNotificationsOpen((open) => !open);
+    setUnreadCount(0);
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand-mark">
-          <div className="brand-icon"><ShieldCheck size={24} /></div>
+          <img className="brand-logo" src={logoUrl} alt="EmpowHer" />
           <div>
             <p>EmpowHer</p>
-            <span>Community Safety</span>
+            <span>Changing Locality to a Community</span>
           </div>
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map((item) => {
+          {generalNavItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive ? "side-link-active" : "side-link"}>
-                <Icon size={19} />
+                <Icon size={24} />
                 {item.label}
               </NavLink>
             );
           })}
+
+          <div className="nav-section">
+            <span>Safety</span>
+            {safetyNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink key={item.to} to={item.to} className={({ isActive }) => isActive ? "side-link-active safety-link" : "side-link safety-link"}>
+                  <Icon size={24} />
+                  {item.label}
+                </NavLink>
+              );
+            })}
+          </div>
         </nav>
 
         <button className="logout-button" onClick={() => { onLogout(); navigate("/login"); }}>
@@ -127,20 +261,48 @@ function Shell({ currentUser, onLogout }) {
       </aside>
 
       <section className="shell-content">
-        <header className="topbar">
-          <div>
-            <p className="data-label">SIGNED IN AS {currentUser.role}</p>
-            <h1>{currentUser.name}</h1>
-          <span className="locality-line"><MapPin size={16} /> {currentUser.locality}</span>
-        </div>
-          {currentUser.role === "woman" && <div className="topbar-actions">
-            <button className={`live-switch ${sharing ? "active" : ""}`} onClick={toggleSharing}>
-              <span className="switch-track"><span /></span>
-              <Radio size={17} />
-              Share my live location
-            </button>
+        <header className="status-header">
+          <div className="status-copy">
+            <h1>{getWelcome(currentUser)}</h1>
+            <span className="locality-pill"><MapPin size={16} /> {currentUser.location?.area || currentUser.locality || "Locality pending"}</span>
+          </div>
+          <div className="topbar-actions">
+            <div className="status-actions-row">
+              <div className="notification-wrap">
+                <button className="notification-button" onClick={toggleNotifications} aria-label="Open notifications">
+                  <Bell size={19} />
+                  {unreadCount > 0 && <span>{unreadCount}</span>}
+                </button>
+                {notificationsOpen && (
+                  <div className="notification-menu">
+                    <div className="notification-menu-head">
+                      <strong>Updates</strong>
+                      <small>{notifications.length ? `${notifications.length} recent` : "All quiet"}</small>
+                    </div>
+                    {notifications.length === 0 ? (
+                      <p className="notification-empty">No new alerts or community events yet.</p>
+                    ) : (
+                      notifications.map((item) => (
+                        <article key={item.id} className={`notification-item ${item.tone}`}>
+                          <strong>{item.title}</strong>
+                          <p>{item.detail}</p>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {currentUser.role === "woman" && (
+                <button className={`live-switch ${sharing ? "active" : ""}`} onClick={toggleSharing}>
+                  <span className="switch-track"><span /></span>
+                  <Radio size={17} />
+                  Share my live location
+                </button>
+              )}
+            </div>
             {status && <p className="share-status">{status}</p>}
-          </div>}
+          </div>
         </header>
 
         <Outlet />

@@ -50,6 +50,24 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true
         },
+        location: {
+            pincode: {
+                type: String,
+                default: ""
+            },
+            area: {
+                type: String,
+                default: ""
+            },
+            district: {
+                type: String,
+                default: ""
+            },
+            state: {
+                type: String,
+                default: ""
+            }
+        },
         latitude: {
             type: Number,
             default: null

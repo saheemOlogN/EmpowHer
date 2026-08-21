@@ -16,9 +16,28 @@ const publicUser = (user) => {
     return payload;
 };
 
-const validateSignupBasics = ({ name, phone, email, password, role, gender, locality, profession, maritalStatus }) => {
+const normalizeLocation = (location = {}) => ({
+    pincode: String(location.pincode || "").trim(),
+    area: String(location.area || "").trim(),
+    district: String(location.district || "").trim(),
+    state: String(location.state || "").trim()
+});
+
+const formatLocality = (location = {}) => {
+    const normalized = normalizeLocation(location);
+    const label = [normalized.area, normalized.district, normalized.state].filter(Boolean).join(", ");
+    return label && normalized.pincode ? `${label} - ${normalized.pincode}` : "";
+};
+
+const validateSignupBasics = ({ name, phone, email, password, role, gender, locality, location, profession, maritalStatus }) => {
     if(!name || !phone || !email || !password || !role || !gender || !locality) {
         return "Please fill all required fields";
+    }
+
+    const normalizedLocation = normalizeLocation(location);
+
+    if(!/^\d{6}$/.test(normalizedLocation.pincode) || !normalizedLocation.area || !normalizedLocation.district || !normalizedLocation.state) {
+        return "Confirm your locality from a valid 6 digit PIN code";
     }
 
     if(role !== "woman" && role !== "worker") {
@@ -38,13 +57,15 @@ const validateSignupBasics = ({ name, phone, email, password, role, gender, loca
 
 export const sendOtp = async (req, res) => {
     try {
-        const { name, phone, email, password, role, gender, locality, profession, maritalStatus } = req.body;
+        const { name, phone, email, password, role, gender, locality, location, profession, maritalStatus } = req.body;
 
         if(mongoose.connection.readyState !== 1) {
             return res.status(503).json({ message: "Database is not connected", success: false });
         }
 
-        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality, profession, maritalStatus });
+        const normalizedLocation = normalizeLocation(location);
+        const normalizedLocality = formatLocality(normalizedLocation) || locality;
+        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality: normalizedLocality, location: normalizedLocation, profession, maritalStatus });
 
         if(validationMessage) {
             return res.status(400).json({ message: validationMessage, success: false });
@@ -173,6 +194,7 @@ export const completeSignup = async (req, res) => {
             profession,
             maritalStatus,
             locality,
+            location,
             latitude,
             longitude
         } = req.body;
@@ -181,7 +203,9 @@ export const completeSignup = async (req, res) => {
             return res.status(503).json({ message: "Database is not connected", success: false });
         }
 
-        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality, profession, maritalStatus });
+        const normalizedLocation = normalizeLocation(location);
+        const normalizedLocality = formatLocality(normalizedLocation) || locality;
+        const validationMessage = validateSignupBasics({ name, phone, email, password, role, gender, locality: normalizedLocality, location: normalizedLocation, profession, maritalStatus });
 
         if(validationMessage) {
             return res.status(400).json({ message: validationMessage, success: false });
@@ -223,7 +247,8 @@ export const completeSignup = async (req, res) => {
             workType: workType || "",
             profession: role === "woman" ? profession : (profession || workType || ""),
             maritalStatus: role === "woman" ? maritalStatus : "",
-            locality,
+            locality: normalizedLocality,
+            location: normalizedLocation,
             latitude: latitude || null,
             longitude: longitude || null,
             identityVerified: role === "woman",

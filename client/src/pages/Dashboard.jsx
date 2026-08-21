@@ -1,8 +1,7 @@
-import { Bell, BriefcaseBusiness, HeartHandshake, ListChecks, MapPin, Search, Star, UsersRound } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Bell, BriefcaseBusiness, HeartHandshake, ListChecks, MapPin, Search, Star, UserRoundCheck, UsersRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
-import TrustSeal from "../components/TrustSeal.jsx";
 import {
   getAlerts,
   getConnections,
@@ -30,20 +29,55 @@ function RatingPicker({ onRate }) {
   );
 }
 
+function BadgePill({ children, variant = "neutral" }) {
+  return <span className={`badge-pill ${variant}`}>{children}</span>;
+}
+
+function StarRating({ value = 0, count = 0 }) {
+  const rounded = Math.round(Number(value || 0) * 2) / 2;
+
+  return (
+    <div className="rating-display" aria-label={`${rounded} out of 5 stars from ${count || 0} marks`}>
+      <span className="rating-stars">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const fill = rounded >= star ? "full" : rounded >= star - 0.5 ? "half" : "empty";
+          return <Star key={star} size={16} className={`star-${fill}`} fill="currentColor" />;
+        })}
+      </span>
+      <span>{rounded || 0} ({count || 0})</span>
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, message, action }) {
+  return (
+    <div className="empty-state">
+      <Icon size={20} />
+      <span>{message}</span>
+      {action}
+    </div>
+  );
+}
+
+const categoryFilters = ["Teacher", "Housewife", "Student", "Nurse", "Tailor"];
+
 function Dashboard({ currentUser, onUserUpdate }) {
   const [dashboard, setDashboard] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [connections, setConnections] = useState({ accepted: [], pendingIncoming: [], pendingOutgoing: [] });
   const [sharedLocations, setSharedLocations] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [previewSummary, setPreviewSummary] = useState(null);
   const [peopleResults, setPeopleResults] = useState([]);
   const [localityDraft, setLocalityDraft] = useState(currentUser.locality);
-  const [localityCoords, setLocalityCoords] = useState({ latitude: currentUser.latitude || null, longitude: currentUser.longitude || null });
+  const [locationDraft, setLocationDraft] = useState(currentUser.location || { pincode: "", area: "", district: "", state: "" });
+  const [pincodeDraft, setPincodeDraft] = useState(currentUser.location?.pincode || "");
   const [localitySuggestions, setLocalitySuggestions] = useState([]);
+  const [localityLoading, setLocalityLoading] = useState(false);
+  const [localityDialogOpen, setLocalityDialogOpen] = useState(false);
   const [peopleSearch, setPeopleSearch] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const localitySearchRef = useRef(null);
 
   async function load() {
     setLoading(true);
@@ -75,9 +109,20 @@ function Dashboard({ currentUser, onUserUpdate }) {
 
   useEffect(() => {
     setLocalityDraft(currentUser.locality);
-    setLocalityCoords({ latitude: currentUser.latitude || null, longitude: currentUser.longitude || null });
+    setLocationDraft(currentUser.location || { pincode: "", area: "", district: "", state: "" });
+    setPincodeDraft(currentUser.location?.pincode || "");
+    setPreviewSummary(null);
     load();
-  }, [currentUser._id, currentUser.locality]);
+    const refreshId = window.setInterval(load, 8000);
+    const handleLiveUpdate = () => load();
+
+    window.addEventListener("empowher:live-update", handleLiveUpdate);
+
+    return () => {
+      window.clearInterval(refreshId);
+      window.removeEventListener("empowher:live-update", handleLiveUpdate);
+    };
+  }, [currentUser._id, currentUser.locality, currentUser.location?.pincode]);
 
   const outgoingIds = useMemo(() => new Set(connections.pendingOutgoing.map((connection) => String(connection.recipient._id))), [connections]);
   const connectedIds = useMemo(() => new Set(connections.accepted.flatMap((connection) => [String(connection.requester._id), String(connection.recipient._id)])), [connections]);
@@ -94,23 +139,39 @@ function Dashboard({ currentUser, onUserUpdate }) {
     await load();
   }
 
-  async function handleLocalityInput(value) {
-    setLocalityDraft(value);
+  function handlePincodeInput(value) {
+    const nextPincode = value.replace(/\D/g, "").slice(0, 6);
 
-    if(localitySearchRef.current) {
-      window.clearTimeout(localitySearchRef.current);
-    }
+    setPincodeDraft(nextPincode);
+    setLocalityDraft("");
+    setPreviewSummary(null);
+    setLocationDraft({
+      pincode: nextPincode,
+      area: "",
+      district: "",
+      state: ""
+    });
+    setLocalitySuggestions([]);
+  }
 
-    if(!value || value.length < 3) {
-      setLocalitySuggestions([]);
+  async function fetchLocalities() {
+    if(pincodeDraft.length !== 6) {
+      setMessage("Enter a valid 6 digit PIN code");
       return;
     }
 
-    localitySearchRef.current = window.setTimeout(async () => {
-      const nextSuggestions = await getLocationSuggestions(value, localityCoords);
+    setLocalityLoading(true);
+    const data = await getLocationSuggestions(pincodeDraft);
+    setLocalityLoading(false);
 
-      setLocalitySuggestions(nextSuggestions);
-    }, 300);
+    if(!data.success) {
+      setLocalitySuggestions([]);
+      setMessage(data.message);
+      return;
+    }
+
+    setMessage(data.message);
+    setLocalitySuggestions(data.suggestions);
   }
 
   async function chooseLocality(suggestion) {
@@ -122,26 +183,44 @@ function Dashboard({ currentUser, onUserUpdate }) {
     }
 
     setLocalityDraft(data.locality);
-    setLocalityCoords({ latitude: data.latitude, longitude: data.longitude });
-    if(localitySearchRef.current) {
-      window.clearTimeout(localitySearchRef.current);
-    }
+    setLocationDraft(data.location);
     setLocalitySuggestions([]);
 
     const summaryData = await getLocalitySummary(data.locality);
-    if(summaryData.success) setSummary(summaryData.summary);
+    if(summaryData.success) setPreviewSummary(summaryData.summary);
+  }
+
+  function openLocalityDialog() {
+    setLocalityDraft(currentUser.locality);
+    setLocationDraft(currentUser.location || { pincode: "", area: "", district: "", state: "" });
+    setPincodeDraft(currentUser.location?.pincode || "");
+    setLocalitySuggestions([]);
+    setPreviewSummary(null);
+    setLocalityDialogOpen(true);
+  }
+
+  function closeLocalityDialog() {
+    setLocalityDraft(currentUser.locality);
+    setLocationDraft(currentUser.location || { pincode: "", area: "", district: "", state: "" });
+    setPincodeDraft(currentUser.location?.pincode || "");
+    setLocalitySuggestions([]);
+    setPreviewSummary(null);
+    setLocalityDialogOpen(false);
   }
 
   async function saveLocality() {
     const data = await updateLocality(currentUser._id, {
       locality: localityDraft,
-      latitude: localityCoords.latitude,
-      longitude: localityCoords.longitude
+      location: locationDraft,
+      latitude: null,
+      longitude: null
     });
     setMessage(data.message);
 
     if(data.success) {
+      if(previewSummary) setSummary(previewSummary);
       onUserUpdate(data.user);
+      setLocalityDialogOpen(false);
     }
   }
 
@@ -152,7 +231,7 @@ function Dashboard({ currentUser, onUserUpdate }) {
       return;
     }
 
-    const data = await searchPeople({ locality: localityDraft || currentUser.locality, search: value });
+    const data = await searchPeople({ locality: currentUser.locality, search: value });
     if(data.success) setPeopleResults(data.people);
   }
 
@@ -169,53 +248,45 @@ function Dashboard({ currentUser, onUserUpdate }) {
     <div className="page-stack">
       {message && <p className="notice">{message}</p>}
 
-      <section className="alert-strip">
-        <p className="data-label">{activeAlerts.length} ACTIVE ALERTS IN {currentUser.locality}</p>
-        <div>
-          {activeAlerts.slice(0, 3).map((alert) => (
-            <span key={alert._id}>{alert.type.replaceAll("_", " ")}</span>
-          ))}
-          {activeAlerts.length === 0 && <span>No alerts in your area yet</span>}
+      <section className="dashboard-priority">
+        <article className={`alert-anchor ${activeAlerts.length ? "has-alerts" : ""}`}>
+          <div className="anchor-icon"><AlertTriangle size={24} /></div>
+          <div>
+            <BadgePill variant={activeAlerts.length ? "danger" : "success"}>{activeAlerts.length ? "Active safety alerts" : "Area calm"}</BadgePill>
+            <h2>{activeAlerts.length ? `${activeAlerts.length} alert${activeAlerts.length === 1 ? "" : "s"} in ${currentUser.locality}` : `No active alerts in ${currentUser.locality}`}</h2>
+            <p>{activeAlerts.length ? "Review nearby incidents and check in with trusted connections before heading out." : "Your locality has no active safety alerts right now."}</p>
+          </div>
+          <div className="alert-chip-row">
+            {activeAlerts.slice(0, 3).map((alert) => (
+              <BadgePill key={alert._id} variant="danger">{alert.type.replaceAll("_", " ")}</BadgePill>
+            ))}
+            {activeAlerts.length === 0 && <BadgePill variant="success">No alerts nearby</BadgePill>}
+          </div>
+          <Link className="primary-button inline" to="/alerts"><Bell size={16} /> Raise alert</Link>
+        </article>
+
+        <div className="quick-stack">
+          <Link className="action-card" to="/connections"><UsersRound size={20} /><span><strong>Connections</strong><small>People you trust</small></span></Link>
+          <Link className="action-card" to="/opportunities"><ListChecks size={20} /><span><strong>Opportunities</strong><small>Local paid tasks</small></span></Link>
+          <Link className="action-card" to="/experiences"><HeartHandshake size={20} /><span><strong>Experiences</strong><small>Share and support</small></span></Link>
         </div>
       </section>
 
-      <section className="quick-grid">
-        <Link className="action-card" to="/connections"><UsersRound />Connections</Link>
-        <Link className="action-card" to="/opportunities"><ListChecks />Opportunities</Link>
-        <Link className="action-card" to="/experiences"><HeartHandshake />Experiences</Link>
-        <Link className="action-card" to="/alerts"><Bell />Raise alert</Link>
-      </section>
-
-      <section className="page-panel locality-panel">
+      <section className="page-panel locality-info-panel">
         <div className="section-heading">
           <div>
-            <p className="data-label">CHANGE OR SCOUT LOCALITY</p>
             <h2>Locality summary</h2>
           </div>
-          <button className="small-button" onClick={saveLocality}>Change locality</button>
+          <button className="primary-button inline" onClick={openLocalityDialog}>Change locality</button>
         </div>
-        <div className="locality-tools">
-          <div className="relative">
-            <input className="field-input" value={localityDraft} onChange={(event) => handleLocalityInput(event.target.value)} placeholder="Search or enter locality" />
-            {localitySuggestions.length > 0 && (
-              <div className="suggestions">
-                {localitySuggestions.map((suggestion) => (
-                  <button type="button" key={suggestion.id} onClick={() => chooseLocality(suggestion)}>
-                    {suggestion.name}
-                    {suggestion.placeFormatted && <span>{suggestion.placeFormatted}</span>}
-                  </button>
-                ))}
-              </div>
+        <div className="locality-identity">
+          <div>
+            <span className="locality-badge"><MapPin size={15} /> {currentUser.location?.area || currentUser.locality || "Locality not set"}</span>
+            <h3>{currentUser.locality || "Confirm your locality"}</h3>
+            {(currentUser.location?.district || currentUser.location?.state || currentUser.location?.pincode) && (
+              <p>{[currentUser.location?.district, currentUser.location?.state, currentUser.location?.pincode ? `PIN ${currentUser.location.pincode}` : ""].filter(Boolean).join(" · ")}</p>
             )}
           </div>
-          {currentUser.role === "woman" ? (
-            <div className="search-row">
-              <Search size={17} />
-              <input value={peopleSearch} onChange={(event) => runPeopleSearch(event.target.value)} placeholder="Search teacher, housewife, student" />
-            </div>
-          ) : (
-            <p className="privacy-note">Worker accounts can view public locality stats and opportunities, but cannot search or connect with women.</p>
-          )}
         </div>
         {summary && (
           <div className="summary-grid">
@@ -230,26 +301,121 @@ function Dashboard({ currentUser, onUserUpdate }) {
             {summary.professions.map((item) => <span key={item.title}>{item.title} · {item.count}</span>)}
           </div>
         )}
-        {currentUser.role === "woman" && peopleResults.length > 0 && (
-          <div className="card-list search-results">
-            {peopleResults.map((person) => (
-              <article key={person._id} className="list-card">
-                <div>
-                  <h3>{person.name}</h3>
-                  <p><BriefcaseBusiness size={14} /> {person.profession || "Community member"} · {person.maritalStatus?.replaceAll("_", " ") || "status not shared"}</p>
-                </div>
-                <button className="small-button" onClick={() => requestConnection(person._id)}>Connect</button>
-              </article>
-            ))}
-          </div>
-        )}
       </section>
+
+      {currentUser.role === "woman" && (
+        <section className="page-panel locality-search-panel">
+          <div className="section-heading">
+            <div>
+              <h2>Find women in this locality</h2>
+            </div>
+          </div>
+          <div className="community-tools">
+            <div className="search-row">
+              <Search size={17} />
+              <input value={peopleSearch} onChange={(event) => runPeopleSearch(event.target.value)} placeholder="Search by profession or role" />
+            </div>
+            <div className="filter-chips">
+              {categoryFilters.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  className={peopleSearch === category ? "filter-chip active" : "filter-chip"}
+                  onClick={() => runPeopleSearch(peopleSearch === category ? "" : category)}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+          {peopleResults.length > 0 ? (
+            <div className="profile-grid search-results">
+              {peopleResults.map((person) => (
+                <article key={person._id} className="profile-card woman-card">
+                  <div className="anonymous-avatar woman-avatar"><UserRoundCheck size={20} /></div>
+                  <div>
+                    <h3>{person.name}</h3>
+                    <p><BriefcaseBusiness size={16} /> {person.profession || "Community member"}</p>
+                    <BadgePill variant="neutral">{person.maritalStatus?.replaceAll("_", " ") || "status not shared"}</BadgePill>
+                  </div>
+                  <button className="small-button" onClick={() => requestConnection(person._id)}>Connect</button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            peopleSearch && <EmptyState icon={Search} message="No matching women found in this locality yet." />
+          )}
+        </section>
+      )}
+
+      {currentUser.role !== "woman" && (
+        <section className="page-panel">
+          <p className="privacy-note">Worker accounts can view public locality stats and opportunities, but cannot search or connect with women.</p>
+        </section>
+      )}
+
+      {localityDialogOpen && (
+        <div className="dialog-backdrop">
+          <div className="locality-dialog">
+            <div className="section-heading">
+              <div>
+                <h2>Choose by PIN code</h2>
+              </div>
+              <button type="button" className="secondary-button small" onClick={closeLocalityDialog}>Close</button>
+            </div>
+            <div className="locality-picker">
+              <div className="relative">
+                <input
+                  className="field-input"
+                  value={pincodeDraft}
+                  onChange={(event) => handlePincodeInput(event.target.value)}
+                  inputMode="numeric"
+                  maxLength="6"
+                  placeholder="Enter 6 digit PIN code"
+                />
+                {localitySuggestions.length > 0 && (
+                  <div className="suggestions">
+                    {localitySuggestions.map((suggestion) => (
+                      <button type="button" key={suggestion.id} onClick={() => chooseLocality(suggestion)}>
+                        {suggestion.name}
+                        {suggestion.placeFormatted && <span>{suggestion.placeFormatted}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button className="secondary-button" onClick={fetchLocalities} disabled={localityLoading || pincodeDraft.length !== 6}>
+                {localityLoading ? "Checking..." : "Find"}
+              </button>
+            </div>
+            {localityDraft && (
+              <div className="locality-confirmation">
+                <span>{locationDraft.area || localityDraft}</span>
+                {locationDraft.district && <span>{locationDraft.district}</span>}
+                {locationDraft.state && <span>{locationDraft.state}</span>}
+                {locationDraft.pincode && <span>PIN {locationDraft.pincode}</span>}
+              </div>
+            )}
+            {(previewSummary || summary) && (
+              <div className="summary-grid compact-summary">
+                <div><strong>{(previewSummary || summary).womenCount}</strong><span>women profiles</span></div>
+                <div><strong>{(previewSummary || summary).workerCount}</strong><span>workers</span></div>
+                <div><strong>{(previewSummary || summary).activeAlerts}</strong><span>active alerts</span></div>
+                <div><strong>{(previewSummary || summary).openOpportunities.length}</strong><span>open tasks</span></div>
+              </div>
+            )}
+            <div className="button-row">
+              <button className="primary-button inline" onClick={saveLocality} disabled={!localityDraft}>Save locality</button>
+              <button type="button" className="secondary-button" onClick={closeLocalityDialog}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {sharedLocations.length > 0 ? (
         <section className="page-panel">
           <div className="section-heading">
             <div>
-              <p className="data-label">LIVE CONNECTIONS</p>
               <h2>Shared locations</h2>
             </div>
           </div>
@@ -263,29 +429,31 @@ function Dashboard({ currentUser, onUserUpdate }) {
           </MapContainer>
         </section>
       ) : (
-        <section className="empty-text">No trusted connection is sharing live location with you yet - you will see them here when sharing starts.</section>
+        <EmptyState icon={MapPin} message="No trusted connection is sharing live location with you yet." />
       )}
 
       <section className="dashboard-columns">
         <div className="page-panel">
           <div className="section-heading">
             <div>
-              <p className="data-label">{womenNearby.length} LOCAL PROFILES</p>
               <h2>Women Nearby</h2>
+              <p className="section-caption">{womenNearby.length} local profiles</p>
             </div>
           </div>
-          <div className="card-list">
-            {womenNearby.length === 0 && <p className="empty-text">No women found in your locality yet - nearby profiles will appear here after they join.</p>}
+          <div className="profile-grid">
+            {womenNearby.length === 0 && <EmptyState icon={UsersRound} message="No nearby profiles yet. They will appear as women join your locality." />}
             {womenNearby.map((woman) => {
               const connected = connectedIds.has(String(woman._id));
               const requested = outgoingIds.has(String(woman._id));
               return (
-                <article key={woman._id} className="list-card">
+                <article key={woman._id} className="profile-card woman-card">
+                  <div className="anonymous-avatar woman-avatar"><UserRoundCheck size={20} /></div>
                   <div>
-                  <h3>{woman.name}</h3>
-                    <p><MapPin size={14} /> {woman.locality} · {woman.profession || "Community member"}</p>
+                    <h3>{woman.name}</h3>
+                    <p><MapPin size={16} /> {woman.locality}</p>
+                    <BadgePill variant="neutral">{woman.profession || "Community member"}</BadgePill>
                   </div>
-                  {connected ? <TrustSeal label="CONNECTED" /> : (
+                  {connected ? <BadgePill variant="success">Connected</BadgePill> : (
                     <button className="small-button" disabled={requested} onClick={() => requestConnection(woman._id)}>
                       {requested ? "Requested" : "Connect"}
                     </button>
@@ -299,20 +467,21 @@ function Dashboard({ currentUser, onUserUpdate }) {
         <div className="page-panel">
           <div className="section-heading">
             <div>
-              <p className="data-label">{workersNearby.length} LOCAL WORKERS</p>
               <h2>Workers Nearby</h2>
+              <p className="section-caption">{workersNearby.length} local workers</p>
             </div>
           </div>
-          <div className="card-list">
-            {workersNearby.length === 0 && <p className="empty-text">No workers found in your locality yet - recommended workers will appear here once your community rates them.</p>}
+          <div className="profile-grid">
+            {workersNearby.length === 0 && <EmptyState icon={BriefcaseBusiness} message="No workers nearby yet. Recommended services will appear after community ratings." />}
             {workersNearby.map((worker) => (
-              <article key={worker._id} className="list-card worker-card">
-                {worker.isRecommended && <TrustSeal label="COMMUNITY RECOMMENDED" tone="star" />}
+              <article key={worker._id} className="profile-card worker-card">
+                <div className="anonymous-avatar worker-avatar"><BriefcaseBusiness size={20} /></div>
                 <div>
                   <h3>{worker.name}</h3>
                   <p>{worker.workType || "Worker"} in {worker.locality}</p>
-                  <p className="rating-line"><Star size={15} fill="currentColor" /> {worker.safetyRating || 0} from {worker.ratingCount || 0} marks</p>
+                  <StarRating value={worker.safetyRating} count={worker.ratingCount} />
                 </div>
+                {worker.isRecommended && <BadgePill variant="success">Community recommended</BadgePill>}
                 {currentUser.role === "woman" && <RatingPicker onRate={(rating) => rateWorker(worker._id, rating)} />}
               </article>
             ))}

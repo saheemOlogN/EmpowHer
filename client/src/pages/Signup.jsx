@@ -8,7 +8,8 @@ import { Input } from "../components/ui/input.jsx";
 import { Label } from "../components/ui/label.jsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select.jsx";
 import { completeSignup, runIdentityCheck, sendSignupOtp, verifySignupOtp } from "../services/api.js";
-import { getCurrentLocality, getLocationSuggestions, getSelectedLocation } from "../services/location.js";
+import { getLocationSuggestions, getSelectedLocation } from "../services/location.js";
+import logoUrl from "../assets/empowher-logo.png";
 
 const steps = ["details", "phone", "identity", "done"];
 
@@ -26,6 +27,12 @@ function Signup({ onLogin }) {
     profession: "",
     maritalStatus: "",
     locality: "",
+    location: {
+      pincode: "",
+      area: "",
+      district: "",
+      state: ""
+    },
     latitude: "",
     longitude: ""
   });
@@ -34,9 +41,10 @@ function Signup({ onLogin }) {
   const [otpVerified, setOtpVerified] = useState(false);
   const [identityVerified, setIdentityVerified] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [localityLoading, setLocalityLoading] = useState(false);
+  const [pincode, setPincode] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const otpRefs = useRef([]);
-  const localitySearchRef = useRef(null);
 
   const visibleStep = form.role === "worker" && step === "identity" ? "done" : step;
   const progressIndex = steps.indexOf(visibleStep);
@@ -49,26 +57,42 @@ function Signup({ onLogin }) {
     }));
   }
 
-  async function handleLocality(value) {
-    updateForm("locality", value);
+  function handlePincode(value) {
+    const nextPincode = value.replace(/\D/g, "").slice(0, 6);
 
-    if(localitySearchRef.current) {
-      window.clearTimeout(localitySearchRef.current);
-    }
+    setPincode(nextPincode);
+    setSuggestions([]);
+    setForm((old) => ({
+      ...old,
+      locality: "",
+      location: {
+        pincode: nextPincode,
+        area: "",
+        district: "",
+        state: ""
+      },
+      latitude: "",
+      longitude: ""
+    }));
+  }
 
-    if(!value || value.length < 3) {
-      setSuggestions([]);
+  async function fetchLocalities() {
+    if(pincode.length !== 6) {
+      toast.error("Enter a valid 6 digit PIN code");
       return;
     }
 
-    localitySearchRef.current = window.setTimeout(async () => {
-      const nextSuggestions = await getLocationSuggestions(value, {
-        latitude: form.latitude,
-        longitude: form.longitude
-      });
+    setLocalityLoading(true);
+    const data = await getLocationSuggestions(pincode);
+    setLocalityLoading(false);
 
-      setSuggestions(nextSuggestions);
-    }, 300);
+    if(!data.success) {
+      setSuggestions([]);
+      toast.error(data.message);
+      return;
+    }
+
+    setSuggestions(data.suggestions);
   }
 
   async function chooseSuggestion(suggestion) {
@@ -82,34 +106,10 @@ function Signup({ onLogin }) {
     setForm((old) => ({
       ...old,
       locality: data.locality,
+      location: data.location,
       latitude: data.latitude,
       longitude: data.longitude
     }));
-    if(localitySearchRef.current) {
-      window.clearTimeout(localitySearchRef.current);
-    }
-    setSuggestions([]);
-  }
-
-  async function detectLocation() {
-    setLoading(true);
-    const data = await getCurrentLocality();
-    setLoading(false);
-
-    if(!data.success) {
-      toast.error(data.message);
-      return;
-    }
-
-    setForm((old) => ({
-      ...old,
-      locality: data.locality,
-      latitude: data.latitude,
-      longitude: data.longitude
-    }));
-    if(localitySearchRef.current) {
-      window.clearTimeout(localitySearchRef.current);
-    }
     setSuggestions([]);
     toast.success(data.message);
   }
@@ -204,10 +204,16 @@ function Signup({ onLogin }) {
     <main className="login-screen">
       <section className="login-grid">
         <div className="login-brand">
-          <p className="wordmark light">EmpowHer</p>
+          <div className="auth-brand-lockup">
+            <img src={logoUrl} alt="EmpowHer" />
+            <div>
+              <p className="wordmark light">EmpowHer</p>
+              <span>Changing Locality to a Community</span>
+            </div>
+          </div>
           <p className="data-label">SIGNUP</p>
           <h1>Verified local trust for safer everyday movement.</h1>
-          <p>Create your community account with phone verification and a simulated identity check for women.</p>
+          <p>Create your community account with phone verification, PIN-code locality selection, and a simulated identity check for women.</p>
         </div>
 
         <Card className="login-card">
@@ -265,7 +271,15 @@ function Signup({ onLogin }) {
                   <Label htmlFor="locality">Locality</Label>
                   <div className="locality-picker">
                     <div className="relative">
-                      <Input id="locality" value={form.locality} onChange={(event) => handleLocality(event.target.value)} required />
+                      <Input
+                        id="locality"
+                        value={pincode}
+                        onChange={(event) => handlePincode(event.target.value)}
+                        inputMode="numeric"
+                        maxLength="6"
+                        placeholder="Enter 6 digit PIN code"
+                        required
+                      />
                       {suggestions.length > 0 && (
                         <div className="suggestions">
                           {suggestions.map((suggestion) => (
@@ -277,8 +291,18 @@ function Signup({ onLogin }) {
                         </div>
                       )}
                     </div>
-                    <Button type="button" variant="secondary" onClick={detectLocation}>Detect</Button>
+                    <Button type="button" variant="secondary" onClick={fetchLocalities} disabled={localityLoading || pincode.length !== 6}>
+                      {localityLoading ? "Checking..." : "Find"}
+                    </Button>
                   </div>
+                  {form.locality && (
+                    <div className="locality-confirmation">
+                      <span>{form.location.area}</span>
+                      <span>{form.location.district}</span>
+                      <span>{form.location.state}</span>
+                      <span>PIN {form.location.pincode}</span>
+                    </div>
+                  )}
                 </div>
                 <Button disabled={loading}>{loading ? "Sending..." : "Send verification code"}</Button>
                 <p className="auth-link">Already have an account? <Link to="/login">Sign in</Link></p>
