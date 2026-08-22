@@ -3,10 +3,12 @@ import {
   Bot,
   HeartHandshake,
   Home,
+  Landmark,
   ListChecks,
   LogOut,
   MapPin,
   Radio,
+  ShieldCheck,
   Star,
   UsersRound,
   Wifi
@@ -30,12 +32,14 @@ const generalNavItems = [
   { to: "/", label: "Dashboard", icon: Home },
   { to: "/connections", label: "Connections", icon: UsersRound },
   { to: "/opportunities", label: "Opportunities", icon: ListChecks },
+  { to: "/schemes", label: "Schemes", icon: Landmark },
   { to: "/experiences", label: "Experiences", icon: HeartHandshake },
   { to: "/assistant", label: "Assistant", icon: Bot }
 ];
 
 const safetyNavItems = [
   { to: "/alerts", label: "Alerts", icon: Bell },
+  { to: "/safety-analysis", label: "Safety Analysis", icon: ShieldCheck },
   { to: "/safety-pin", label: "Safety Pin", icon: Wifi }
 ];
 

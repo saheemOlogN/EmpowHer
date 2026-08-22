@@ -46,6 +46,27 @@ const userSchema = new mongoose.Schema(
             enum: ["single", "married", "widowed", "separated", "prefer_not_to_say", ""],
             default: ""
         },
+        age: {
+            type: Number
+        },
+        occupation: {
+            type: String,
+            enum: ["student", "unemployed", "self_employed", "farmer", "salaried", "homemaker", "entrepreneur"]
+        },
+        state: {
+            type: String
+        },
+        annualIncome: {
+            type: Number
+        },
+        isPregnantOrNewMother: {
+            type: Boolean,
+            default: false
+        },
+        category: {
+            type: String,
+            enum: ["general", "obc", "sc", "st", "minority"]
+        },
         locality: {
             type: String,
             required: true

@@ -7,7 +7,9 @@ import Connections from "./pages/Connections.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Experiences from "./pages/Experiences.jsx";
 import Opportunities from "./pages/Opportunities.jsx";
+import SafetyAnalysis from "./pages/SafetyAnalysis.jsx";
 import SafetyPin from "./pages/SafetyPin.jsx";
+import Schemes from "./pages/Schemes.jsx";
 import Signin from "./pages/Signin.jsx";
 import Signup from "./pages/Signup.jsx";
 import WorkerRatings from "./pages/WorkerRatings.jsx";
@@ -89,6 +91,8 @@ function handleLogin(session) {
               <Route path="/alerts" element={<Alerts currentUser={currentUser} />} />
               <Route path="/experiences" element={<Experiences currentUser={currentUser} />} />
               <Route path="/assistant" element={<Assistant currentUser={currentUser} />} />
+              <Route path="/safety-analysis" element={<SafetyAnalysis currentUser={currentUser} />} />
+              <Route path="/schemes" element={<Schemes currentUser={currentUser} />} />
               <Route path="/safety-pin" element={<SafetyPin />} />
             </>
           )}
